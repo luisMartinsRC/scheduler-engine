@@ -8,11 +8,19 @@ import java.util.Properties;
 
 import static com.sos.scheduler.engine.common.system.OperatingSystem.*;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.*;
 
 public final class OperatingSystemTest {
     @Test public void testMakeModuleFilename() {
-        assertThat(operatingSystem.makeModuleFilename("xx"), isWindows? equalTo("xx.dll") : equalTo("libxx.so"));
+        String filename = operatingSystem.makeModuleFilename("xx");
+        if (isAIX)
+            assertThat(filename, isOneOf("libxx.a", "libxx.so"));   // IBM-Java: .a, OpenJDK: .so
+        else
+            assertThat(filename, equalTo(isWindows? "xx.dll" : "libxx.so"));
+    }
+
+    @Test public void testMakeModuleFilenameSo() {
+        assertThat(operatingSystem.makeModuleFilenameSo("xx.a.yy"), equalTo(isWindows? "xx.a.yy.dll" : "libxx.a.yy.so"));
     }
 
     @Test public void testMakeExecutableFilename() {

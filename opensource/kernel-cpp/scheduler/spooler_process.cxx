@@ -454,6 +454,8 @@ void Process::start_local_process()
     connection->set_priority( _priority );
     connection->set_login(_login);
     connection->start_process( parameters );
+    Z_LOG2("zschimmer", Z_FUNCTION << " start_process ok\n");
+
 
     _connection = +connection;
 
@@ -638,6 +640,7 @@ bool Process::async_remote_start_continue( Async_operation::Continue_flags )
 
 bool Process::async_continue()
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << " " << obj_name() << "\n");
     return _connection? _connection->async_continue() 
                       : false;
 }

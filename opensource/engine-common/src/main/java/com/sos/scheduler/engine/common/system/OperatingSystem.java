@@ -13,13 +13,19 @@ public abstract class OperatingSystem {
     public static final String name = System.getProperty("os.name");
     public static final CpuArchitecture cpuArchitecture = CpuArchitecture.cpuArchitecture();
     public static final boolean isWindows = name.startsWith("Windows");
+    public static final boolean isAIX = name.startsWith("AIX");
     public static final boolean isUnix = !isWindows;
     public static final Unix unix = new Unix();
     public static final Windows windows = new Windows();
     public static final OperatingSystem operatingSystem = isWindows? windows : unix;
     public static final String javaLibraryPathPropertyName = "java.library.path";
     private static final Logger logger = LoggerFactory.getLogger(OperatingSystem.class);
-    
+
+    /** Für AIX, das lib.a liefert. Wir wollen aber lib.so. */
+    public final String makeModuleFilenameSo(String path) {
+        return makeModuleFilename(path).replaceAll("\\.a$", ".so");
+    }
+
     public final String makeModuleFilename(String path) {
         File file = new File(path);
         return new File(file.getParent(), System.mapLibraryName(file.getName())).getPath();
@@ -86,7 +92,7 @@ public abstract class OperatingSystem {
         }
 
         @Override public final String getDynamicLibraryEnvironmentVariableName() {
-            return "LD_LIBRARY_PATH";
+            return isAIX? "LIBPATH" : "LD_LIBRARY_PATH";
         }
 
 //        @Override public void removeAbsoluteDirectoryRecursivly(File directory) {

@@ -2280,8 +2280,11 @@ jobject Static_method::jobject_call( jclass cls, const Parameter_list& parameter
 
     Env env;
 
+    Z_LOG2("zschimmer", Z_FUNCTION << "\n");
     jobject result = env->CallStaticObjectMethodA( cls, _id, JVALUES_CAST(parameter_list.jvalue_array()) );
+    Z_LOG2("zschimmer", Z_FUNCTION << " CallStaticObjectMethodA ok\n");
     if( env->ExceptionCheck() )  env.throw_java( "CallObjectMethodA" );
+    Z_LOG2("zschimmer", Z_FUNCTION << " ok\n");
 
     return result;
 }

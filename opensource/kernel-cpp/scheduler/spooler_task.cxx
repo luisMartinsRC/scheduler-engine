@@ -1475,9 +1475,11 @@ bool Task::do_something()
                             if( !_operation )
                             {
                                 _operation = begin__start();
+                                Z_LOG2("zschimmer", Z_FUNCTION << " starting started\n");
                             }
                             else
                             {
+                                Z_LOG2("zschimmer", Z_FUNCTION << " starting operation_end\n");
                                 ok = operation__end();
 
                                 if( _job->_history.min_steps() == 0 )  _history.start();

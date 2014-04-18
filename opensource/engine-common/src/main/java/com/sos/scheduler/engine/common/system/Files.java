@@ -24,8 +24,10 @@ public final class Files {
     private Files() {}
 
     public static void makeExecutable(File f) {
+        logger.debug("makeExecutuable " + f + ", OperatingSystem.isUnix=" + OperatingSystem.isUnix);
         if (OperatingSystem.isUnix) {
             boolean ok = f.setExecutable(true);
+            logger.debug("setExecutable ok="+ok);
             if (!ok)  throw new RuntimeException("setExecutable() failed on "+f);
         }
     }

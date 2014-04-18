@@ -709,7 +709,7 @@ void Prefix_log::open()
                 }
             #endif
 
-            Z_LOG2( "scheduler.log", "\nopen " << _filename << '\n' );
+            Z_LOG2( "scheduler.log", "open " << _filename << '\n' );
 
             open_patiently_file();
 

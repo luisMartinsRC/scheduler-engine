@@ -2770,14 +2770,17 @@ void Spooler::wait( Wait_handles* wait_handles, const Time& wait_until_, Object*
 
 bool Spooler::run_continue( const Time& now )
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n");
     bool something_done = false;
 
     if( _state != Spooler::s_paused )
     {
         // PROZESSE FORTSETZEN
+        Z_LOG2("zschimmer", Z_FUNCTION << " 1\n");
         something_done |= _process_class_subsystem->async_continue();
 
         // TASKS FORTSETZEN
+        Z_LOG2("zschimmer", Z_FUNCTION << " 2\n");
         if( _task_subsystem )  something_done |= _task_subsystem->process( now );    
     }
 
@@ -2785,9 +2788,11 @@ bool Spooler::run_continue( const Time& now )
 
 
     // TCP- UND UDP-VERBINDUNGEN IN SPOOLER_COMMUNICATION.CXX FORTSETZEN
+    Z_LOG2("zschimmer", Z_FUNCTION << " 3\n");
     something_done |= _connection_manager->async_continue();
     //Z_LOG2( "zschimmer", Z_FUNCTION << "  something_done=" << something_done << "\n" );
 
+    Z_LOG2("zschimmer", Z_FUNCTION << " ok\n");
     return something_done;
 }
 

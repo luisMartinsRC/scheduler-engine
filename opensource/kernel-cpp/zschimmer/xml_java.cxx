@@ -83,8 +83,11 @@ bool Document_ptr::try_load_xml_bytes( const string& xml_text, const string& enc
 
 void Document_ptr::load_xml_bytes(const string& xml_text, const string& encoding)
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n");
     javabridge::Local_java_byte_array array(xml_text);
+    Z_LOG2("zschimmer", Z_FUNCTION << " loadXml\n");
     assign(XmlUtilsJ::loadXml(array, encoding));
+    Z_LOG2("zschimmer", Z_FUNCTION << " ok\n");
 }
 
 //--------------------------------------------------------------------Document_ptr::load_xml_string

@@ -80,12 +80,21 @@ jint XmlUtils::intXmlAttribute(const ::zschimmer::javabridge::proxy_jobject< ::j
 }
 
 ::javaproxy::org::w3c::dom::Document XmlUtils::loadXml(const ::zschimmer::javabridge::Local_java_byte_array& p0, const ::zschimmer::javabridge::proxy_jobject< ::javaproxy::java::lang::String >& p1) {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n");
     ::zschimmer::javabridge::raw_parameter_list<2> parameter_list;
+    Z_LOG2("zschimmer", Z_FUNCTION << " 1\n");
     parameter_list._jvalues[0].l = p0.get_jbyteArray();
+    Z_LOG2("zschimmer", Z_FUNCTION << " 2\n");
     parameter_list._jvalues[1].l = p1.get_jobject();
+    Z_LOG2("zschimmer", Z_FUNCTION << " 3\n");
     XmlUtils__class* cls = XmlUtils__class::class_factory.clas();
+    Z_LOG2("zschimmer", Z_FUNCTION << " 4\n");
     ::javaproxy::org::w3c::dom::Document result;
-    result.steal_local_ref(cls->_loadXml___3BLjava_lang_String_2__method.jobject_call(cls->get_jclass(), parameter_list));
+    Z_LOG2("zschimmer", Z_FUNCTION << " 5\n");
+    jclass c = cls->get_jclass();
+    Z_LOG2("zschimmer", Z_FUNCTION << " loadXml()\n");
+    result.steal_local_ref(cls->_loadXml___3BLjava_lang_String_2__method.jobject_call(c, parameter_list));
+    Z_LOG2("zschimmer", Z_FUNCTION << "ok \n");
     return result;
 }
 

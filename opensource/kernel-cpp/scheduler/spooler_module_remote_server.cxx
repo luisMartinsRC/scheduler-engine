@@ -159,7 +159,7 @@ void Com_remote_module_instance_server::Class_data::read_xml_bytes( const string
 {
     if( xml_text != "" )
     {
-        //Z_LOG2( "zschimmer", Z_FUNCTION << xml_text << "\n" );
+        Z_LOG2( "zschimmer", Z_FUNCTION << " " << xml_text << "\n" );
         
         _stdin_dom_document.load_xml_bytes( xml_text );
 
@@ -198,6 +198,7 @@ Com_remote_module_instance_server::Com_remote_module_instance_server( com::objec
     _zero_(this+1),
     _session(session)
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n");
     if( *class_object_ptr )
     {
         _class_data = dynamic_cast<Class_data*>( +*class_object_ptr );

@@ -419,6 +419,7 @@ bool Remote_module_instance_proxy::continue_async_operation( Operation* operatio
 { 
 
 AGAIN:
+    Z_LOGI2("zschimmer", Z_FUNCTION << " state=" << operation->_call_state << "\n");
     switch( operation->_call_state )
     {
         // begin__start() ... begin_end()
@@ -435,6 +436,7 @@ AGAIN:
             operation->set_async_child( connection_operation );
 
             operation->_call_state = c_connect;
+            Z_LOG2("zschimmer", Z_FUNCTION << " operation->_call_state = c_connect\n");
             break;
         }
 
@@ -442,6 +444,7 @@ AGAIN:
         case c_connect:
         {
             operation->set_async_child( NULL );
+            Z_LOG2("zschimmer", Z_FUNCTION << " c_connect _session->connect_server__end();\n");
             _session->connect_server__end();
         }
         

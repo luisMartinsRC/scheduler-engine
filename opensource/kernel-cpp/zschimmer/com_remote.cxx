@@ -194,7 +194,7 @@ static void set_linger( SOCKET socket )
 
 static void set_non_blocking( SOCKET socket )
 {
-    //Z_LOG( "ioctl(" << socket << ",FIONBIO,&1)\n" );
+    Z_LOG2("zschimmer", "ioctl(" << socket << ",FIONBIO,&1)\n");
 
     unsigned long on = 1;
     int ret = ioctlsocket( socket, FIONBIO, &on );
@@ -384,7 +384,11 @@ void Connection::connect( const Host_and_port& controller_address )
 
 Connection::Connect_operation* Connection::connect_server__start()
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n" );
     ptr<Connect_operation> operation = Z_NEW( Connect_operation( this ) );
+    #if defined Z_AIX
+        operation->async_continue();
+    #endif
     _my_operation = +operation;
     return operation;
 }
@@ -437,6 +441,7 @@ string Connection::Connect_operation::async_state_text_() const
 bool Connection::Connect_operation::async_continue_( Continue_flags flags )
 {
     bool something_done = false;
+    Z_LOG2("zschimmer", Z_FUNCTION << " _state=" << _state << "\n");
 
 
     switch( _state )
@@ -454,6 +459,7 @@ bool Connection::Connect_operation::async_continue_( Continue_flags flags )
                 // Und bei _noch_ synchronem connect(): PROVISORIUM (connect() ist bereits gerufen. Es sollte aber asynchron sein!)
                 something_done = true;
                 _state = s_writing_to_stdin;
+                Z_LOG2("zschimmer", Z_FUNCTION << " s_writing_to_stdin\n");
                 //return true;        
             }
             else
@@ -535,7 +541,7 @@ bool Connection::Connect_operation::async_continue_( Continue_flags flags )
 #           if  1//def Z_WINDOWS     // Windows kann nicht asynchron (mit select()) zu stdin des Prozesses schreiben. Also nehmen wir eine temporäre Datei
         
                 _state = s_ok;
-
+                Z_LOG2("zschimmer", Z_FUNCTION << " s_ok\n");
 #            else
 
                 if( _stdin_written < _connection->_stdin_data.length() )
@@ -882,6 +888,7 @@ void Connection::set_event( Event* event )
 
 void Connection::wait()
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n");
     check_async( current_operation() );     // Warnung ausgeben, wenn asynchroner Betrieb verlangt ist
 
     #ifdef Z_UNIX
@@ -902,6 +909,7 @@ void Connection::wait()
         int ret = ::select( _socket + 1, &readfds, &writefds, &exceptfds, NULL );
         if( ret == -1 )  check_socket_error( socket_errno(), "select" );
     #endif
+    Z_LOG2("zschimmer", Z_FUNCTION << " ok\n");
 }
 
 //---------------------------------------------------------------------------Connection::send_async
@@ -938,11 +946,13 @@ int Connection::send_async( const void* data, int length )
 
 int Connection::read_async( void* buffer, int size, bool* eof )
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n");
     assert_right_thread();
 
     if( eof )  *eof = false;
     if( size == 0 )  return 0;
 
+    Z_LOG2("zschimmer", Z_FUNCTION << " recv\n");
     int length = ::recv( _socket, (char*)buffer, size, MSG_NOSIGNAL );
 
     int err = length == SOCKET_ERROR? socket_errno() : 0;
@@ -1044,36 +1054,43 @@ void Connection::check_connection_error()
 {
     if( !_last_errno )
     {
-        char buffer [1];
+        #if !defined Z_AIX   // AIX 6 blockiert in recv(), wenn _socket von socketpair() ist
+            char buffer [1];
 
-#       ifdef Z_WINDOWS
-            int read = recv( _socket, buffer, 0, MSG_NOSIGNAL );
-            int err = read == -1? socket_errno() : 0;
-            bool broken = read == -1  &&  err != Z_EWOULDBLOCK;   // Linux meldet read==0 und errno==0, wenn Prozess abgebrochen ist.
-#        else
-            int read = recv( _socket, buffer, 1, MSG_NOSIGNAL | MSG_PEEK );    //?? Meldet keinen Fehler, wenn Verbindung abgebrochen ist.
-            int err = read == -1? socket_errno() : 0;
-            bool broken = read == -1  &&  err != Z_EWOULDBLOCK  ||  read == 0;
-            //int read = send( _socket, buffer, 0, MSG_NOSIGNAL );
-#       endif
+            #ifdef Z_WINDOWS
+                int read = recv( _socket, buffer, 0, MSG_NOSIGNAL );
+                int err = read == -1? socket_errno() : 0;
+                bool broken = read == -1  &&  err != Z_EWOULDBLOCK;   // Linux meldet read==0 und errno==0, wenn Prozess abgebrochen ist.
+            #else
+                Z_LOG2("zschimmer", Z_FUNCTION << " recv(" << _socket << ")\n");
+                int read = recv( _socket, buffer, 1, MSG_NOSIGNAL | MSG_PEEK );    //?? Meldet keinen Fehler, wenn Verbindung abgebrochen ist.
+                int err = read == -1? socket_errno() : 0;
+                #if defined Z_AIX
+                    bool broken = read == -1  &&  err != Z_EWOULDBLOCK;
+                #else
+                    bool broken = read == -1  &&  err != Z_EWOULDBLOCK  ||  read == 0;
+                #endif
+                //int read = send( _socket, buffer, 0, MSG_NOSIGNAL );
+            #endif
 
-        Z_LOG2( "socket.recv", "pid=" << pid() << " recv(" << _socket << ",0) => " << read << "   errno=" << err << " " << z_strerror(err) << "\n" );
+            Z_LOG2( "socket.recv", "pid=" << pid() << " recv(" << _socket << ",0) => " << read << "   errno=" << err << " " << z_strerror(err) << "\n" );
 
 
-        //if( read == -1  &&  err != Z_EWOULDBLOCK )
-        if( broken )
-        {
-            _new_error = true;
-            _last_errno = err;
-            _broken = 0;
-            _manager->clear_fd( Socket_manager::except_fd, _socket );
+            //if( read == -1  &&  err != Z_EWOULDBLOCK )
+            if( broken )
+            {
+                _new_error = true;
+                _last_errno = err;
+                _broken = 0;
+                _manager->clear_fd( Socket_manager::except_fd, _socket );
 
-            Z_LOG( "\npid=" << pid() << " *** CONNECTION ERROR *** errno=" << _last_errno << "\n\n" );
-        }
-
+                Z_LOG( "\npid=" << pid() << " *** CONNECTION ERROR *** errno=" << _last_errno << "\n\n" );
+            }
+        #endif
 
         if( process_terminated() )  _process_lost = true, _new_error = true;
     }
+
 }
 
 //-------------------------------------------------------------------Connection::async_check_error
@@ -4299,6 +4316,7 @@ void Session::close()
 
 void Session::server_loop()
 {
+    Z_LOGI2("zschimmer", Z_FUNCTION << "\n");
     Connection::In_exclusive_mode in_exclusive_mode ( _connection );       // Ruft _connection->enter_exclusive_mode();
     
     
@@ -4312,8 +4330,10 @@ void Session::server_loop()
         if( eof )  break;
 
         bool connection_lost = false;
+        Z_LOG2("zschimmer", Z_FUNCTION << "_connection->execute( this, &input_message, &output_message );\n");
         _connection->execute( this, &input_message, &output_message );
 
+        Z_LOG2("zschimmer", Z_FUNCTION << " send_response\n");
         send_response( &output_message, &connection_lost );
 
         if( connection_lost )  break;

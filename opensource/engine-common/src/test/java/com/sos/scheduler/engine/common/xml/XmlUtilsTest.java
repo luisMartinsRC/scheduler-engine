@@ -36,10 +36,10 @@ public final class XmlUtilsTest {
         String resultString = new String(result, US_ASCII);
         String normalizedResultString = resultString.replaceFirst("[?]>\r?\n", "?>");   // Nicht alle Implementierungen setzen <?xml ...?> in eine eigene Zeile.
         String nl = System.getProperty("line.separator");
-        assertThat(normalizedResultString, equalTo("<?xml version=\"1.0\" encoding=\"US-ASCII\"?>" + //nl +
+        assertThat(normalizedResultString.trim(), equalTo("<?xml version=\"1.0\" encoding=\"US-ASCII\"?>" + //nl +
                 "<a>"+nl+
                 "    <b>B</b>"+nl+
-                "</a>"+nl));
+                "</a>"));
     }
 
     @Test public void testToXml() {
