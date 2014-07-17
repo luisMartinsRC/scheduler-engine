@@ -2526,6 +2526,7 @@ void Task::do_end__end()
 
 Async_operation* Task::do_step__start()
 {
+    Z_LOG2("scheduler", obj_name() << ".do_step__start()\n");
     if( !_module_instance )  z::throw_xc( "SCHEDULER-199" );
     if (_order) report_event_code(orderStepStartedEvent, _order->java_sister());
     return _module_instance->step__start();
@@ -2535,6 +2536,7 @@ Async_operation* Task::do_step__start()
 
 Variant Task::do_step__end()
 {
+    Z_LOG2("scheduler", obj_name() << ".do_step__end()\n");
     if( !_module_instance )  z::throw_xc( "SCHEDULER-199" );
     _file_logger->flush();      // JS-986 JS-1039
     return _module_instance->step__end();

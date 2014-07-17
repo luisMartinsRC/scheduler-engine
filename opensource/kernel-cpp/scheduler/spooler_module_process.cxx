@@ -54,6 +54,7 @@ Process_module_instance::Process_module_instance( Module* module )
     _process_handle( "process_handle" )
 {
     assert( _module );
+    Z_LOG2("scheduler", "Process_module_instance - CTOR\n");
 }
 
 //------------------------------------------------Process_module_instance::~Process_module_instance

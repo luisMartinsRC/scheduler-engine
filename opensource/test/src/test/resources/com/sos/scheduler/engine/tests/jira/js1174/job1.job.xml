@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<job xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.sos-berlin.com/repository/scheduler/1.3.12/scheduler.xsd"
+    order="yes"
+>
+    <!--
+    idle_timeout="0"
+    timeout="5"
+
+    <script java_class="com.sos.scheduler.engine.tests.jira.js1174.Job1"/>
+    -->
+
+    <script language="shell"><![CDATA[
+        :;if false; then :
+            @echo off
+            goto WINDOWS
+        fi
+
+        echo Unix-Code ...
+        exit
+
+        :WINDOWS
+            echo ---------------------------
+            echo Windows-Code ...
+            rem ping -n 10 localhost
+            echo ---------------------------
+    ]]></script>
+</job>
