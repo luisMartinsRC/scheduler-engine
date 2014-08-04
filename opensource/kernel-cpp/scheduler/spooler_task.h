@@ -331,6 +331,9 @@ struct Task : Object,
     void                        set_state_direct            ( State );
     Host_and_port               read_remote_scheduler_parameter();
 
+    void register_task_timeout_call();
+    void unregister_task_timeout_call();
+
  protected:
     Fill_zero                  _zero_;
 

@@ -12,7 +12,7 @@ public final class JS1174IT extends SchedulerTest {
 
     private int countEndedTasks = 0;
 //    private int countOrderFinished = 0;
-    private static final Duration timeout = Duration.standardSeconds(60);
+    private static final Duration timeout = Duration.standardSeconds(60*60*24);
 
     @Test
     public void test() {
@@ -20,7 +20,8 @@ public final class JS1174IT extends SchedulerTest {
         controller().activateScheduler();
 //        controller().scheduler().executeXml("<add_order job_chain='chain1' id='ID1'/>");
 //        controller().scheduler().executeXml("<add_order job_chain='chain1' id='ID2'/>");
-        controller().scheduler().executeXml(util.startJobImmediately("job2").getCommand());
+        controller().scheduler().executeXml(util.startJobImmediately("job2").getCommand()); // Shell-Job
+//        controller().scheduler().executeXml(util.startJobImmediately("job3").getCommand()); // API-Job
 
 //        controller().waitForTermination(shortTimeout);
         controller().waitForTermination(timeout);

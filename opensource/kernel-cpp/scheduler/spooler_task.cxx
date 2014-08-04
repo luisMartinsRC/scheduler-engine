@@ -1036,7 +1036,18 @@ void Task::on_call(const Warn_longer_than_call&) {
 }
 
 void Task::on_call(const job::Task_timeout_call&) {
-    do_something();
+    //do_something();
+
+    Time now = Time::now();
+    //Duration step_duration = now - _step_starttime;
+    Duration step_duration = now - _last_operation_time;
+    _log->warn(S() << "#################    Task::on_call(Task_timeout_call): vergangene Zeit(time::with_ms) : " << step_duration.as_string(time::with_ms));
+
+    if( now > _last_operation_time + _timeout  &&  !_kill_tried ) {
+        _log->warn(message_string("SCHEDULER-272", _timeout.seconds()));
+        //_log->error( message_string( "SCHEDULER-272", _timeout.seconds() ) );
+        //try_kill();
+    }
 }
 
 void Task::on_call(const Killing_task_call&) {
@@ -1063,14 +1074,31 @@ void Task::wake_when_longer_than()
         _call_register.call_at<Warn_longer_than_call>(Time::now() + _warn_if_longer_than);
 }
 
+
+void Task::register_task_timeout_call()
+{
+    if (!_timeout.is_eternal())
+    {
+        Time now = Time::now();
+        _last_operation_time = now;
+        _call_register.call_at<Task_timeout_call>(now + _timeout);
+    }
+}
+
+
+void Task::unregister_task_timeout_call()
+{
+    _call_register.cancel<Task_timeout_call>();
+}
+
 //------------------------------------------------------------------------------Task::check_timeout
 
 bool Task::check_timeout( const Time& now )
 {
-    if( !_timeout.is_eternal()  &&  now > _last_operation_time + _timeout  &&  !_kill_tried ) {
-        _log->error( message_string( "SCHEDULER-272", _timeout.seconds() ) );   // "Task wird nach nach Zeitablauf abgebrochen"
-        return try_kill();
-    }
+    //if( !_timeout.is_eternal()  &&  now > _last_operation_time + _timeout  &&  !_kill_tried ) {
+    //    _log->error( message_string( "SCHEDULER-272", _timeout.seconds() ) );   // "Task wird nach nach Zeitablauf abgebrochen"
+    //    return try_kill();
+    //}
 
     return false;
 }
@@ -1296,7 +1324,7 @@ bool Task::do_something()
     bool something_done     = false;
     Time now                = Time::now();
 
-    something_done |= check_subprocess_timeout( now );
+    something_done |= check_subprocess_timeout(now);
 
     if( _operation &&  !_operation->async_finished() ) {
         // Die Operation tut was und wir wollen prüfen, ob sie es solange darf
@@ -1381,9 +1409,13 @@ bool Task::do_something()
                             _begin_called = true;
                             if( !_operation ) {
                                 _operation = begin__start();
+                                // -- spooler_init() --
+                                register_task_timeout_call();
+                                // --
                                 if (!_operation->async_finished())
                                     _operation->on_async_finished_call(_call_register.new_async_call<Task_starting_completed_call>());
                             } else {
+                                unregister_task_timeout_call();
                                 ok = operation__end();
 
                                 if( _job->_history.min_steps() == 0 )  _history.start();
@@ -1415,9 +1447,13 @@ bool Task::do_something()
                                     lock_requestor->dequeue_lock_requests();
                                 }
                                 _operation = do_call__start( spooler_open_name );
+                                // -- spooler_open() --
+                                register_task_timeout_call();
+                                // --
                                 if (!_operation->async_finished())
                                     _operation->on_async_finished_call(_call_register.new_async_call<Task_opening_completed_call>());
                             } else {
+                                unregister_task_timeout_call();
                                 bool ok = operation__end();
                                 if( _delay_until_locks_available ) {
                                     _delay_until_locks_available = false;
@@ -1500,13 +1536,17 @@ bool Task::do_something()
                                         lock_requestor->dequeue_lock_requests();
                                     }
                                     _operation = do_step__start();
+                                    // -- spooler_process() --
+                                    register_task_timeout_call();
                                     if (!_operation->async_finished())
                                         _operation->on_async_finished_call(_call_register.new_async_call<Task_step_completed_call>());
                                     wake_when_longer_than();
                                     something_done = true;
                                 }
-                            } else {
+                            }
+                            else {
                                 _call_register.cancel<Warn_longer_than_call>();
+                                unregister_task_timeout_call();
                                 ok = step__end();
                                 close_operation();
 
@@ -1582,6 +1622,8 @@ bool Task::do_something()
                                     _history.start();
                                 if( _begin_called ) {
                                     _operation = do_end__start();
+                                    // -- spooler_close() --
+                                    register_task_timeout_call();
                                     if (!_operation->async_finished())
                                         _operation->on_async_finished_call(_call_register.new_async_call<Task_end_completed_call>());
                                 } else {
@@ -1589,6 +1631,7 @@ bool Task::do_something()
                                     loop = true;
                                 }
                             } else {
+                                unregister_task_timeout_call();
                                 operation__end();
                                 set_state_direct( loaded()? s_ending_waiting_for_subprocesses
                                                           : s_release );
@@ -1628,9 +1671,12 @@ bool Task::do_something()
                         case s_on_success: {
                             if( !_operation ) {
                                 _operation = do_call__start( spooler_on_success_name );
+                                // -- spooler_on_success() --
+                                register_task_timeout_call();
                                 if (!_operation->async_finished())
                                     _operation->on_async_finished_call(_call_register.new_async_call<Task_on_success_completed_call>());
                             } else {
+                                unregister_task_timeout_call();
                                 operation__end();
                                 set_state_direct( s_exit );
                                 loop = true;
@@ -1643,11 +1689,17 @@ bool Task::do_something()
                         case s_on_error: {
                             if( !_operation ) {
                                 _operation = do_call__start( spooler_on_error_name );
+                                // -- spooler_on_error() --
+                                register_task_timeout_call();
                                if (!_operation->async_finished())
                                     _operation->on_async_finished_call(_call_register.new_async_call<Task_on_error_completed_call>());
                             }
-                            else  
-                                operation__end(), set_state_direct( s_exit ), loop = true;
+                            else {
+                                unregister_task_timeout_call();
+                                operation__end();
+                                set_state_direct(s_exit);
+                                loop = true;
+                            }
                             something_done = true;
                             break;
                         }
@@ -1655,9 +1707,12 @@ bool Task::do_something()
                         case s_exit: {
                             if( !_operation ) {
                                 _operation = do_call__start( spooler_exit_name );
+                                // -- spooler_exit() --
+                                register_task_timeout_call();
                                 if (!_operation->async_finished())
                                     _operation->on_async_finished_call(_call_register.new_async_call<Task_exit_completed_call>());
                             } else {
+                                unregister_task_timeout_call();
                                 operation__end();
                                 set_state_direct( s_release );
                                 loop = true;
@@ -1838,11 +1893,11 @@ bool Task::do_something()
             }
         }  // for
 
-        if( _operation && !had_operation ) {
-            _last_operation_time = now;
-            if (!_timeout.is_eternal())
-                _call_register.call_at<Task_timeout_call>(_last_operation_time + _timeout);
-        }
+        //if( _operation && !had_operation ) {
+        //    _last_operation_time = now;
+        //    if (!_timeout.is_eternal())
+        //        _call_register.call_at<Task_timeout_call>(now + _timeout);
+        //}
 
         if( !something_done )    // Obwohl _next_time erreicht, ist nichts getan?
         {
@@ -1889,7 +1944,7 @@ bool Task::load()
 
     Time now = Time::now();
     _running_since = now;
-    _last_operation_time = now;
+    //_last_operation_time = now;
     _timeout = _job->_task_timeout;
 
     if( _job->is_machine_resumable() ) 
@@ -2016,6 +2071,7 @@ string Task::remote_process_step__end()
 
 bool Task::operation__end() 
 {
+    _log->warn(S() << " --------------- Task::operation__end()  _state = " << _state);
     bool result = false;
 
     try {
