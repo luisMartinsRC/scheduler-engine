@@ -4060,6 +4060,11 @@ STDMETHODIMP Proxy::Invoke_from_any_thread( DISPID dispid, const IID& iid, LCID 
 {
     HRESULT hr;
 
+    if (_connection->_new_error) {
+        Z_LOG("Proxy::Invoke_from_any_thread(): _connection->_new_error\n");
+        return S_OK;
+    }
+
     try
     {
         if( _connection->_is_async )  throw_xc( "Z-REMOTE-129", _title, dispid );  // 2006-06-13
