@@ -4062,7 +4062,7 @@ STDMETHODIMP Proxy::Invoke_from_any_thread( DISPID dispid, const IID& iid, LCID 
 
     if (_connection->_new_error) {
         Z_LOG("Proxy::Invoke_from_any_thread(): _connection->_new_error\n");
-        return S_OK;
+        return E_FAIL;
     }
 
     try

@@ -356,18 +356,28 @@ int File_logger::File_logger_thread::thread_main()
         file_logger->start();
     }
 
-    while( !_terminate_event.signaled() )
+    while( !_terminate_event.signaled() || !file_logger->async_has_error())
     {
         double now = double_from_gmtime();
         _terminate_event.wait( _async_manager.async_next_gmtime() - now );
         _async_manager.async_continue();
+        if (file_logger->async_has_error()) {
+            break;
+        }
     }
 
-    Z_MUTEX( file_logger->_mutex )
+    if (!file_logger->async_has_error())
     {
-        file_logger->finish();
-        file_logger->set_async_manager( NULL );
+        Z_MUTEX(file_logger->_mutex)
+        {
+            file_logger->finish();
+            file_logger->set_async_manager(NULL);
+        }
     }
+
+    terminate();
+    //thread_wait_for_termination();
+    //thread_close();
 
     _file_logger = NULL;
     file_logger = NULL;
