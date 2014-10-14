@@ -629,7 +629,8 @@ struct Object_entry
 struct Object_table
 {
                                ~Object_table            ()                                          { clear(); }
-
+    size_t                      size() const { return _objects.size(); }
+    Object_id                   first_id() const { return _objects.begin()->first; }
     void                        clear                   ();
     void                        remove                  ( Object_id );
   //ptr<IUnknown>               get_object              ( Session*, Object_id, bool is_new, bool become_owner, const string& title = "" );
@@ -639,6 +640,7 @@ struct Object_table
     bool                        empty                   () const                                    { return _objects.empty(); }
     void                        obj_print               ( ostream* s ) const;
     friend ostream&             operator <<             ( ostream& s, const Object_table& o )       { o.obj_print( &s );  return s; }
+    
 
     typedef std::map< Object_id, Object_entry >  Map;
     Map                        _objects;
@@ -714,6 +716,7 @@ struct Session : Object
     Id                         _id;
     ptr<Connection>            _connection;
     Object_table               _object_table;
+    Object_id                   _file_logger_id;
     bool                       _connection_has_only_this_session;
     ptr<Async_operation>       _sync_operation;
 

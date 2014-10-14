@@ -346,44 +346,47 @@ void File_logger::File_logger_thread::terminate()
 
 int File_logger::File_logger_thread::thread_main()
 {
-    Z_LOG2( "zschimmer", Z_FUNCTION << "\n" );
+    try {
+        Z_LOG2("zschimmer", Z_FUNCTION << "\n");
 
-    ptr<File_logger> file_logger = _file_logger;    // Halten
+        ptr<File_logger> file_logger = _file_logger;    // Halten
 
-    Z_MUTEX( file_logger->_mutex )
-    {
-        file_logger->set_async_manager( &_async_manager );
-        file_logger->start();
-    }
-
-    while( !_terminate_event.signaled() || !file_logger->async_has_error())
-    {
-        double now = double_from_gmtime();
-        _terminate_event.wait( _async_manager.async_next_gmtime() - now );
-        _async_manager.async_continue();
-        if (file_logger->async_has_error()) {
-            break;
-        }
-    }
-
-    if (!file_logger->async_has_error())
-    {
         Z_MUTEX(file_logger->_mutex)
         {
-            file_logger->finish();
-            file_logger->set_async_manager(NULL);
+            file_logger->set_async_manager(&_async_manager);
+            file_logger->start();
         }
+
+        while (!_terminate_event.signaled() && !file_logger->async_has_error())
+        {
+            double now = double_from_gmtime();
+            _terminate_event.wait(_async_manager.async_next_gmtime() - now);
+            _async_manager.async_continue();
+        }
+
+        if (!file_logger->async_has_error())
+        {
+            Z_MUTEX(file_logger->_mutex)
+            {
+                file_logger->finish();
+                file_logger->set_async_manager(NULL);
+            }
+        }
+
+        //terminate();
+        /*thread_wait_for_termination();
+        thread_close();*/
+
+        _file_logger = NULL;
+        file_logger = NULL;
+
+        Z_LOG2("zschimmer", Z_FUNCTION << "  terminates\n");
+        return 0;
     }
-
-    terminate();
-    //thread_wait_for_termination();
-    //thread_close();
-
-    _file_logger = NULL;
-    file_logger = NULL;
-
-    Z_LOG2( "zschimmer", Z_FUNCTION << "  terminates\n" );
-    return 0;
+    catch (exception&) {
+        _file_logger = NULL;
+        throw;
+    }
 }
 
 //-------------------------------------------------------------------------------------------------

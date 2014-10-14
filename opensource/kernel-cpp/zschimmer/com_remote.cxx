@@ -1864,7 +1864,7 @@ void Object_entry::close()
 
     //Z_DEBUG_ONLY( if( _iunknown )  Z_LOG( "com_remote: Object_entry(" << _id << ") == " << *this << "  " << ( _table_is_owner? "Release()\n" : "\n" ) ); )
 
-    if( _table_is_owner && _iunknown )  iunknown->Release(); 
+    if( _table_is_owner && iunknown )  iunknown->Release(); 
 }
 
 //--
@@ -4320,10 +4320,21 @@ void Session::server_loop()
 
         bool connection_lost = false;
         _connection->execute( this, &input_message, &output_message );
+        ///////////////////////////////////
+        /*if (_object_table.size() == 1) {
+            _file_logger_id = _object_table.first_id();
+            }*/
+        ///////////////////////////////////
 
         send_response( &output_message, &connection_lost );
 
-        if( connection_lost )  break;
+        if (connection_lost) {
+            /*_connection->enter_exclusive_mode(__FUNCTION__);
+            _object_table.remove(_file_logger_id);
+            _connection->enter_exclusive_mode(__FUNCTION__);*/
+            
+            break;
+        }
     }
 
     // ~In_exclusive_mode() ruft _connection->leave_exclusive_mode();
