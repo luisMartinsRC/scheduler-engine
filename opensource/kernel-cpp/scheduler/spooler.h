@@ -556,7 +556,7 @@ struct Spooler : Object,
     supervisor::Supervisor_client_interface* supervisor_client();
     bool                        has_any_task                ();
 
-    void                        detect_warning_and_send_mail();
+    void                        detect_warning_and_error_and_send_mail();
     void                        write_to_scheduler_log      (const string& category, const string& text) { Z_LOG2(category, text); }  // Für Java nicht mit Mutex abgesichert
 
   private:
