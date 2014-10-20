@@ -212,7 +212,6 @@ static void print_usage()
             "       -port=N\n"
             "       -tcp-port=N\n"
             "       -udp-port=N\n"
-            "       -reuse-port\n"
             "\n"
             "       -exclusive\n"
             "       -backup\n"
@@ -1524,8 +1523,6 @@ void Spooler::read_command_line_arguments()
             if (opt.with_value( "cmd"              ) )  _cmd_xml_bytes = opt.value();
             else
             if( opt.with_value( "port"             ) )  _tcp_port = _udp_port = opt.as_int(),  _tcp_port_as_option_set = _udp_port_as_option_set = true;
-            else
-            if( opt.flag      ( "reuse-port"       ) )  _reuse_port = opt.set();
             else
             if( opt.with_value( "tcp-port"         ) )  _tcp_port = opt.as_int(),  _tcp_port_as_option_set = true;
             else

@@ -762,8 +762,7 @@ int Communication::bind_socket( SOCKET socket, struct sockaddr_in* sa, const str
 
     string port_name = tcp_or_udp + "-port " + as_string( ntohs( sa->sin_port ) );
 
-    if( _spooler->_reuse_port )     // War für Suse 8 nötig. Und für Windows XP, wenn Scheduler zuvor abgestürzt ist (mit Debugger), denn dann bleibt der Port ewig blockiert
-    {
+    #ifdef __GNUC__
         // Zutun: Beachte Unterschied zwischen SO_REUSEPORT und SO_REUSEADDR (http://www.unixguide.net/network/socketfaq/4.11.shtml)
         // und wie Windows und Unix sie auf ihre Weise behandeln.
         // Siehe http://msdn.microsoft.com/en-us/library/ms740621(VS.85).aspx
@@ -792,7 +791,7 @@ int Communication::bind_socket( SOCKET socket, struct sockaddr_in* sa, const str
         ret = setsockopt( socket, SOL_SOCKET, SO_REUSEADDR, (const char*)&true_, sizeof true_ );
         log << "ret=" << ret;  if( ret == SOCKET_ERROR )  log << "  errno=" << errno << "  "  << z_strerror(errno);
         log << "\n";
-    }
+    #endif
 
     bool print_dots = isatty( fileno(stderr) ) && isatty( fileno(stdin) );
 
