@@ -2657,7 +2657,6 @@ void Order::handle_end_state()
     if( !is_real_end_state )
     {
         _end_state_reached = false;
-        _is_touched = false;
     }
     else
     {

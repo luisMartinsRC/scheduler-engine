@@ -23,7 +23,6 @@ public final class JS653IT extends SchedulerTest {
             OrderIdAndState.of("simpleShouldRun", "state.job1"),
             OrderIdAndState.of("simpleWithStateShouldRun", "state.job1"),
             OrderIdAndState.of("superShouldRun", "state.nestedA.job1"),
-            OrderIdAndState.of("superShouldRun", "state.nestedB.job1"),
             OrderIdAndState.of("superWithStateBShouldRun", "state.nestedB.job1"));
     private static final ImmutableSet<OrderKeyAndState> expectedOrderEnds = ImmutableSet.of(
             OrderKeyAndState.of("/simple", "simpleShouldRun", "end"),
