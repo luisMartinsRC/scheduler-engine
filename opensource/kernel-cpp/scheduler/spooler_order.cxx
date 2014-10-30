@@ -3334,7 +3334,7 @@ int Job_chain::number_of_touched_orders() const
 
 
 
-int Job_chain::number_of_touched_orders_obey_max_orders() const
+int Job_chain::number_of_touched_orders_obey_max_orders(bool is_outer_chain) const
 {
     assert_is_not_distributed(Z_FUNCTION);
 
@@ -3342,7 +3342,7 @@ int Job_chain::number_of_touched_orders_obey_max_orders() const
     Z_FOR_EACH_CONST(Node_list, _node_list, it)
     {
         if (Order_queue_node* node = Order_queue_node::try_cast(*it))
-            count += node->order_queue()->number_of_touched_orders_obey_max_orders();
+            count += node->order_queue()->number_of_touched_orders_obey_max_orders(is_outer_chain);
     }
     return count;
 }
@@ -4063,13 +4063,13 @@ int Order_queue::touched_order_count()
 
 
 
-int Order_queue::number_of_touched_orders_obey_max_orders() const
+int Order_queue::number_of_touched_orders_obey_max_orders(bool is_outer_chain) const
 {
     int result = 0;
     FOR_EACH_CONST(Queue, _queue, it)
     {
         Order* order = *it;
-        if (order->is_touched() && !order->_ignore_max_orders) result++;
+        if (order->is_touched(is_outer_chain) && !order->_ignore_max_orders) result++;
     }
     return result;
 }
