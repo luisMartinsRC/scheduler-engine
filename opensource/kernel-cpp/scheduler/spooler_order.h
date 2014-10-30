@@ -996,6 +996,7 @@ struct Order_queue : Com_order_queue,
     bool                        empty                       ()                                      { return _queue.empty(); }
     Order*                      first_processable_order     () const;
     Order*                      first_immediately_processable_order(Untouched_is_allowed, const Time& now ) const;
+    bool                        is_outer_chain_max_orders_reached(Order* order) const;
     Order*                      fetch_order                 ( const Time& now );
     Order*                      load_and_occupy_next_distributed_order_from_database(Task* occupying_task, Untouched_is_allowed, const Time& now);
     bool                        has_immediately_processable_order( const Time& now = Time(0) );

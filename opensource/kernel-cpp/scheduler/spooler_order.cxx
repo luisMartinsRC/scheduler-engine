@@ -4349,42 +4349,9 @@ Order* Order_queue::first_immediately_processable_order(Untouched_is_allowed unt
     {
         Order* order = *o;
 
-        ////////////////////////////////////////////////////////////////////////////////////////////
-        // max_orders für outer job chain bei nested job chain
-        // JS-1198 (In a nested job chain, max_order in super chain limits order for the whole nested chain)
-
-        if (Nested_job_chain_node* first_nested_job_chain_node = Nested_job_chain_node::cast(
-            order->_outer_job_chain_path.empty() ? NULL : order_subsystem()->job_chain(order->_outer_job_chain_path)->node_from_state_or_null(order->_initial_state)))
-        {
-            _log->info(S() << "------------------- NESTED JOB CHAIN -------------------");
-
-            int num_outer_chain_orders = 0;
-            if (Job_chain* nested_job_chain = order_subsystem()->job_chain_or_null(order->_outer_job_chain_path))
-            {
-                Z_FOR_EACH(Job_chain::Node_list, nested_job_chain->_node_list, it)
-                {
-                    if (Nested_job_chain_node* nested_job_chain_node = Nested_job_chain_node::try_cast(*it))
-                    {
-                        Job_chain* inner_chain = nested_job_chain_node->nested_job_chain();
-                        int num_inner_chain_orders = inner_chain->number_of_touched_orders_obey_max_orders();
-                        //_log->info(S() << "             " << inner_chain->obj_name() << "     " << num_inner_chain_orders);
-                        num_outer_chain_orders += num_inner_chain_orders;
-                    }
-                }
-            }
-
-            _log->info(S() << "             num_outer_chain_orders = " << num_outer_chain_orders);
-
-            // Prototyp: outer job chain - max_orders = 2
-            if (num_outer_chain_orders == 2 && !order->is_touched()) {
-                return NULL;
-            }
+        if (is_outer_chain_max_orders_reached(order)) {
+            break;
         }
-        else {
-            _log->info(S() << "------------------- KEINE NESTED JOB CHAIN -------------------");
-        }
-        ////////////////////////////////////////////////////////////////////////////////////////////
-        
 
         if( order->is_immediately_processable( now )  &&  (untouched_is_allowed || order->is_touched() || order->is_ignore_max_orders()))
         {
@@ -4400,6 +4367,40 @@ Order* Order_queue::first_immediately_processable_order(Untouched_is_allowed unt
 
     return result;
 }
+
+
+
+bool Order_queue::is_outer_chain_max_orders_reached(Order* order) const
+{
+    if (!order->_outer_job_chain_path.empty()) {
+        Job_chain* outer_chain = order_subsystem()->job_chain_or_null(order->_outer_job_chain_path);
+
+        if (outer_chain) {
+            if (!outer_chain->is_max_orders_set()) {
+                return false;
+            }
+
+            const bool is_outer_chain = true;
+            int num_outer_chain_orders = 0;
+
+            Z_FOR_EACH(Job_chain::Node_list, outer_chain->_node_list, it) {
+                if (Nested_job_chain_node* nested_job_chain_node = Nested_job_chain_node::try_cast(*it))
+                {
+                    Job_chain* inner_chain = nested_job_chain_node->nested_job_chain();
+                    int num_inner_chain_orders = inner_chain->number_of_touched_orders_obey_max_orders(is_outer_chain);
+                    num_outer_chain_orders += num_inner_chain_orders;
+                }
+            }
+
+            if (num_outer_chain_orders == outer_chain->max_orders() && !order->is_touched(is_outer_chain)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 
 //---------------------------------------------------------------------Order_queue::why_dom_element
 
