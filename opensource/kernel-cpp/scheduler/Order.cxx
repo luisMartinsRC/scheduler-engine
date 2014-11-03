@@ -328,13 +328,23 @@ void Order::occupy_for_task( Task* task, const Time& now )
     _task           = task;
     if( !_start_time )  _start_time = now;      
 
+    touch(task);
+}
 
-    bool was_touched = _is_touched;
-    touch();
-    if (!was_touched) {
-        if( _http_operation )  _http_operation->on_first_order_processing( task );
+
+void Order::touch(Task* task)
+{ 
+    if (!_is_touched) {
+        _is_touched = true; 
+        if (_http_operation) {
+            _http_operation->on_first_order_processing(task);
+        }
         order_subsystem()->count_started_orders();
         report_event_code(orderTouchedEvent, java_sister());
+    }
+    if (!_outer_job_chain_path.empty() &&  !_is_nested_touched) {
+        _is_nested_touched = true; 
+        report_event_code(orderNestedTouchedEvent, java_sister());
     }
 }
 
@@ -2713,7 +2723,7 @@ bool Order::handle_end_state_of_nested_job_chain()
     Z_DEBUG_ONLY( assert( !_is_distributed ) );
 
     bool end_state_reached = false;
-
+    report_event_code(orderNestedFinishedEvent, java_sister());
     try
     {
         if( _outer_job_chain_state == _end_state )

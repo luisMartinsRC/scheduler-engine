@@ -137,7 +137,7 @@ struct Order : Com_order,
     void                    set_priority                ( Priority );
     Priority                    priority                () const                                    { return _priority; }
 
-    void                        touch                   ()                              { _is_touched = true; _is_nested_touched = true; }
+    void                        touch                   (Task*);
     bool                     is_touched(bool is_outer_chain = false) const { return is_outer_chain ? _is_touched : (_is_touched && _is_nested_touched); }
     void                    set_delay_storing_until_processing( bool b )                            { _delay_storing_until_processing = b; }
 

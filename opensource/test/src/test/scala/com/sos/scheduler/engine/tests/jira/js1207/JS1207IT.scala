@@ -1,9 +1,11 @@
 package com.sos.scheduler.engine.tests.jira.js1207
 
 import com.sos.scheduler.engine.data.jobchain.JobChainPath
-import com.sos.scheduler.engine.data.order.{OrderFinishedEvent, OrderId, OrderStepEndedEvent, OrderStepStartedEvent}
+import com.sos.scheduler.engine.data.order.{OrderFinishedEvent, OrderId, OrderNestedFinishedEvent, OrderNestedTouchedEvent, OrderStepEndedEvent, OrderStepStartedEvent, OrderTouchedEvent}
 import com.sos.scheduler.engine.data.xmlcommands.OrderCommand
-import com.sos.scheduler.engine.test.SchedulerTestUtils._
+import com.sos.scheduler.engine.eventbus.EventHandlerFailedEvent
+import com.sos.scheduler.engine.kernel.async.SchedulerThreadCallQueue
+import com.sos.scheduler.engine.kernel.async.SchedulerThreadFutures.inSchedulerThread
 import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
 import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
 import com.sos.scheduler.engine.tests.jira.js1207.JS1207IT._
@@ -22,31 +24,51 @@ import scala.concurrent.{Await, Promise}
 @RunWith(classOf[JUnitRunner])
 final class JS1207IT extends FreeSpec with ScalaSchedulerTest {
 
+  private implicit lazy val schedulerThreadCallQueue = instance[SchedulerThreadCallQueue]
+
   "JS-1198 limited inner jobchains" in {
-    runOrders(UnlimitedOuterJobChainPath, n = 7) shouldEqual Map(
+    val expectedMaxima = Map(
       UnlimitedOuterJobChainPath → 6,
       AInnerJobChainPath → 3,
       BInnerJobChainPath → 2,
       CInnerJobChainPath → 1
     )
+    runOrders(UnlimitedOuterJobChainPath, expectedMaxima, n = 7) shouldEqual expectedMaxima
   }
 
   "JS-1207 limited outer and inner jobchains" in {
-    runOrders(LimitedOuterJobChainPath, n = 7) shouldEqual Map(
+    val expectedMaxima = Map(
       LimitedOuterJobChainPath → 2,
       AInnerJobChainPath → 2,
       BInnerJobChainPath → 2,
       CInnerJobChainPath → 1
     )
+    runOrders(LimitedOuterJobChainPath, expectedMaxima, n = 7) shouldEqual expectedMaxima
   }
 
   /**
    * @return Map with maxima of simulateneously running orders per jobchain
    */
-  private def runOrders(outerJobchainPath: JobChainPath, n: Int): Map[JobChainPath, Int] = {
+  private def runOrders(outerJobchainPath: JobChainPath, jobchainLimits: Map[JobChainPath, Int], n: Int): Map[JobChainPath, Int] = {
     val promise = Promise[Unit]()
     var promisedFinishedOrderCount = n
-    val counters = mutable.Map[JobChainPath, Statistic]() ++ (jobchainPaths map { o ⇒ o → new Statistic })
+    val counters = mutable.Map[JobChainPath, Statistic]() ++ (jobchainLimits map { case (path, limit) ⇒ path → new Statistic(limit) })
+    eventBus.on[OrderTouchedEvent] { case e ⇒
+      e.orderKey.jobChainPath shouldEqual AInnerJobChainPath   // The first inner jobchain, not OutJobChainPath as one may expect
+      counters(outerJobchainPath).onStarted()
+    }
+    eventBus.on[OrderFinishedEvent] { case e ⇒
+      e.orderKey.jobChainPath shouldEqual CInnerJobChainPath   // The last inner jobchain, not OutJobChainPath as one may expect
+      counters(outerJobchainPath).onFinished()
+      promisedFinishedOrderCount -= 1
+      if (promisedFinishedOrderCount == 0) promise.success(())
+    }
+    eventBus.on[OrderNestedTouchedEvent] { case e ⇒
+      counters(e.orderKey.jobChainPath).onStarted()
+    }
+    eventBus.on[OrderNestedFinishedEvent] { case e ⇒
+      counters(e.orderKey.jobChainPath).onFinished()
+    }
     eventBus.on[OrderStepStartedEvent] { case e ⇒
       counters(outerJobchainPath).onStepStarted()
       counters(e.orderKey.jobChainPath).onStepStarted()
@@ -55,15 +77,20 @@ final class JS1207IT extends FreeSpec with ScalaSchedulerTest {
       counters(e.orderKey.jobChainPath).onStepEnded()
       counters(outerJobchainPath).onStepEnded()
     }
-    eventBus.on[OrderFinishedEvent] { case _ ⇒
-      promisedFinishedOrderCount -= 1
-      if (promisedFinishedOrderCount == 0) promise.success(())
+    eventBus.on[EventHandlerFailedEvent] { case e ⇒
+      promise.tryFailure(e.getThrowable)
     }
-    for (i ← 1 to n) scheduler executeXml OrderCommand(outerJobchainPath orderKey OrderId(s"TEST-ORDER-$i"))
+    inSchedulerThread {
+      // Run as single batch for immediate processing
+      for (i ← 1 to n) scheduler executeXml OrderCommand(outerJobchainPath orderKey OrderId(s"TEST-ORDER-$i"))
+    }
     //v1.8 awaitSuccess(promise.future)
     Await.result(promise.future, 60.seconds)
-    for ((jobchainPath, statistics) ← counters) withClue(s"$jobchainPath: ") { statistics.active shouldEqual 0 }
-    counters.toMap collect { case (path, statistic) if statistic.maximum != 0 ⇒ path → statistic.maximum }
+    for ((jobchainPath, statistics) ← counters) withClue(s"$jobchainPath: ") {
+      statistics.running shouldEqual 0
+      statistics.inStep shouldEqual 0
+    }
+    counters.toMap collect { case (path, statistic) if statistic.runningMaximum != 0 ⇒ path → statistic.runningMaximum }
   }
 
   private def eventBus = controller.getEventBus
@@ -75,19 +102,49 @@ private object JS1207IT {
   private val AInnerJobChainPath = JobChainPath("/test-inner-a")
   private val BInnerJobChainPath = JobChainPath("/test-inner-b")
   private val CInnerJobChainPath = JobChainPath("/test-inner-c")
-  private val jobchainPaths = List(UnlimitedOuterJobChainPath, LimitedOuterJobChainPath, AInnerJobChainPath, BInnerJobChainPath, CInnerJobChainPath)
 
-  private class Statistic {
-    var active: Int = 0
-    var maximum: Int = 0
+  private class Statistic(limit: Int) {
+    var running = 0
+    var runningMaximum = 0
+    var inStep = 0
+    var inStepMaximum = 0
+
+    assertInvariant()
+
+    def onStarted(): Unit = {
+      running += 1
+      if (runningMaximum < running) {
+        runningMaximum = running
+      }
+      assertInvariant()
+    }
+
+    def onFinished(): Unit = {
+      running -= 1
+      assertInvariant()
+    }
 
     def onStepStarted(): Unit = {
-      active += 1
-      if (maximum < active) maximum = active
+      inStep += 1
+      if (inStepMaximum < inStep) {
+        inStepMaximum = inStep
+      }
+      assertInvariant()
     }
 
     def onStepEnded(): Unit = {
-      active -= 1
+      inStep -= 1
+      assertInvariant()
+    }
+
+    def assertInvariant(): Unit = {
+      assert(inStep <= running)
+      assert(inStep <= runningMaximum)
+      assert(inStep <= limit)
+      assert(inStepMaximum <= limit)
+      assert(running <= runningMaximum)
+      assert(running <= limit, s"Number of running orders ($runningMaximum) exeeds limit ($limit)")
+      assert(runningMaximum <= limit, s"Maximum number of running orders ($runningMaximum) exeeds limit ($limit)")
     }
   }
 }
