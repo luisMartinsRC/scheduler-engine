@@ -15,6 +15,14 @@
 #endif
 
 
+#if defined Z_WINDOWS && defined Z_64
+#   define FILE_STATUS _stati64
+#   define FILE_STATUS_BY_FD _fstati64
+#else
+#   define FILE_STATUS stat
+#   define FILE_STATUS_BY_FD fstat
+#endif
+
 
 namespace zschimmer {
 

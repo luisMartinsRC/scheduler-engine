@@ -4,6 +4,14 @@
 #define __ZSCHIMMER_FILE_PATH_H
 
 #include "message.h"
+#include "system.h"
+
+
+#if defined Z_WINDOWS && defined Z_64
+#   define FILE_STATUS _stati64
+#else
+#   define FILE_STATUS stat
+#endif
 
 
 struct stat;
@@ -102,7 +110,7 @@ struct File_info : Object
 
     bool                        try_call_stat               ();
     void                        call_stat                   ();
-    void                        read_stat                   ( const struct stat& );
+    void                        read_stat                   ( const struct FILE_STATUS& );
     void                        call_fstat                  ( int file_handle );
 
 

@@ -1114,8 +1114,8 @@ string string_from_fileno( int file_no )
 
 time_t modification_time_of_file( const string& path )
 {
-    struct stat s;
-    int err = ::stat( path.c_str(), &s );                  
+    struct FILE_STATUS s;
+    int err = ::FILE_STATUS(path.c_str(), &s);
     if( err ) throw_errno( errno, "stat", path.c_str() );
 
     return s.st_mtime;                      // Ist lokale Zeit bei lokalen Dateien, GMT bei Samba (Fehler in Samba?)
@@ -1125,9 +1125,9 @@ time_t modification_time_of_file( const string& path )
 
 int64 z_filelength( const char* path )
 {
-    struct stat s;
+    struct FILE_STATUS s;
 
-    int err = ::stat( path, &s );
+    int err = ::FILE_STATUS(path, &s);
     if( err ) throw_errno( errno, "stat", path );
 
     return s.st_size;
