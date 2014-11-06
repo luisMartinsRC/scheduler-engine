@@ -188,6 +188,17 @@
 #if defined Z_HPUX || defined Z_AIX
 #    define EDEADLOCK EDEADLK
 #endif
+
+//-------------------------------------------------------------------------------------FILE_STATUS
+
+#include <sys/stat.h>
+
+#if defined Z_WINDOWS
+#   define FILE_STATUS _stati64
+#else
+#   define FILE_STATUS stat
+#endif
+
 //-------------------------------------------------------------------------------------Z_DEBUG_ONLY
 
 #if defined _DEBUG

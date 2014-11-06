@@ -15,15 +15,6 @@
 #endif
 
 
-#if defined Z_WINDOWS && defined Z_64
-#   define FILE_STATUS _stati64
-#   define FILE_STATUS_BY_FD _fstati64
-#else
-#   define FILE_STATUS stat
-#   define FILE_STATUS_BY_FD fstat
-#endif
-
-
 namespace zschimmer {
 
 struct Has_log;
@@ -63,6 +54,10 @@ string                          directory_of_path           ( const string& path
 string                          filename_of_path            ( const string& path );
 string                          basename_of_path            ( const string& path );
 string                          extension_of_path           ( const string& path );
+
+int                             file_status                 (const char* path, struct FILE_STATUS* stat_buf);
+int                             file_status                 (int file_des, struct FILE_STATUS* stat_buf);
+
 
 //----------------------------------------------------------------------------------------File_base
 

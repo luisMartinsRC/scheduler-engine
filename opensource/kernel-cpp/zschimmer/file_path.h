@@ -7,16 +7,6 @@
 #include "system.h"
 
 
-#if defined Z_WINDOWS && defined Z_64
-#   define FILE_STATUS _stati64
-#else
-#   define FILE_STATUS stat
-#endif
-
-
-struct stat;
-
-
 namespace zschimmer {
 
 struct Has_log;

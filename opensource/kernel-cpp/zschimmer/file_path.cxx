@@ -490,7 +490,7 @@ bool File_path::exists() const
     
     while( path != ""  &&  ( *path.rbegin() == '/'  ||  *path.rbegin() == Z_DIR_SEPARATOR[0] ) )  path.erase( path.length() - 1 );
 
-    int err = ::FILE_STATUS(path.c_str(), &s);
+    int err = file_status(path.c_str(), &s);
     return !err;
 }
 
@@ -730,10 +730,10 @@ void File_info::call_stat()
 bool File_info::try_call_stat()
 {
     bool         result              = false;
-    struct FILE_STATUS  stat_buf;
     string       path                = _file_path;
     bool         should_be_directory = false;
 
+    struct       FILE_STATUS stat_buf;
     memset( &stat_buf, 0, sizeof stat_buf );
 
     if( string_ends_with( path, Z_DIR_SEPARATOR )  ||
@@ -743,7 +743,7 @@ bool File_info::try_call_stat()
         should_be_directory = true;
     }
 
-    int error = FILE_STATUS(_file_path.c_str(), &stat_buf);
+    int error = file_status(_file_path.c_str(), &stat_buf);
     if( !error )
     {
         read_stat( stat_buf );
@@ -765,7 +765,7 @@ void File_info::call_fstat( int file_handle )
 
     memset( &stat_buf, 0, sizeof stat_buf );
 
-    int error = FILE_STATUS_BY_FD(file_handle, &stat_buf);
+    int error = file_status(file_handle, &stat_buf);
     if( error )  throw_errno( errno, "stat", _file_path.c_str() );
 
     read_stat( stat_buf );
