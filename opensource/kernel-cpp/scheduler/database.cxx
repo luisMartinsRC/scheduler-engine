@@ -1300,6 +1300,7 @@ bool Database::try_reopen_after_error(const exception& callers_exception, const 
     if (_waiting) z::throw_xc("SCHEDULER-184");
     if (_db_name == "") throw;
     if( _is_reopening_database_after_error ) throw;
+    _transaction = NULL;
 
     In_recursion in_recursion = &_waiting; 
     if (in_recursion)  throw_xc( callers_exception );   
