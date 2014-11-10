@@ -1902,7 +1902,7 @@ void Spooler::activate_subsystems()
 
     // Job- und Order-<run_time> benutzen das geladene Scheduler-Skript
     _scheduler_script_subsystem->switch_subsystem_state( subsys_active );       // ruft spooler_init()
-    detect_warning_and_send_mail();
+    detect_warning_and_error_and_send_mail();
 
     _event_subsystem         ->switch_subsystem_state( subsys_active );
     _folder_subsystem        ->switch_subsystem_state( subsys_active );
@@ -3202,10 +3202,11 @@ void Spooler::kill_all_processes( Kill_all_processs_option option )
 
 //------------------------------------------------------------Spooler::detect_warning_and_send_mail
 
-void Spooler::detect_warning_and_send_mail()
+void Spooler::detect_warning_and_error_and_send_mail()
 {
-    // Wenn eine Warnung ins _Hauptprotokoll_ ausgegeben worden ist, eMail versenden
-    if( _log->highest_level() >= log_warn ) // &&  _log->mail_to() != ""  &&  _log->mail_from() != "" )
+    // Wenn eine Warnung oder Fehler ins _Hauptprotokoll_ ausgegeben worden ist, eMail versenden
+    if ((_log->highest_level() == log_warn && _mail_on_warning) || 
+        (_log->highest_level() == log_error && _mail_on_error))
     {
         try
         {
