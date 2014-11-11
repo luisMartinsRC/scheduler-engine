@@ -698,6 +698,10 @@ Spooler::Spooler(jobject java_main_context)
     _max_micro_step_time(Duration(10)),
     _call_register(this)
 {
+    #if !defined(Z_WINDOWS)
+        _reuse_port = true;
+    #endif
+
     _log->init( this );              // Nochmal nach load_argv()
     _log->set_title( "Main log" );
 
