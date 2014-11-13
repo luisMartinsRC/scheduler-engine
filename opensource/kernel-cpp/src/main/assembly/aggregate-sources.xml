@@ -20,6 +20,7 @@
                 <exclude>**/.gitignore</exclude>
                 <exclude>**/*.iml</exclude>
                 <exclude>**/*.sdf</exclude>
+				<exclude>**/*.opensdf</exclude>
                 <exclude>**/*.suo</exclude>
                 <exclude>scheduler/tests/**</exclude>
             </excludes>
