@@ -2534,7 +2534,7 @@ Order* Job_chain::add_order_from_database_record(Transaction* ta, const Record& 
     if (is_file_based)
     {
         Z_LOG2("scheduler", "Order from database changes " << order->path() << "\n");
-        assert(!order->_job_chain);
+        //assert(!order->_job_chain);
         assert(!order->_task);
     }
 
@@ -3170,6 +3170,14 @@ Job_chain* Job_chain::on_replace_now()
     }
 
     close();
+
+    // Wenn die Job-Kette geändert wurde, müssen auch die Dateibasierten Aufträge neu geladen werden
+    string normalized_job_chain_path = _spooler->order_subsystem()->normalized_path(path());
+    Standing_order_subsystem::File_based_map order_map = _spooler->standing_order_subsystem()->_file_based_map;
+    Z_FOR_EACH_CONST(Standing_order_subsystem::File_based_map, order_map, i) {
+        Order* o = i->second;
+        o->set_force_file_reread();
+    }
 
     return job_chain_folder()->replace_file_based( this );
 }

@@ -187,8 +187,6 @@ Absolute_path Folder::make_path( const string& name )
 
 bool Folder::adjust_with_directory( Directory* directory )
 {
-    typedef stdext::hash_map< Typed_folder*, list< const Directory_entry* > >   File_list_map;
-    
     File_list_map file_list_map;
     bool          something_changed = false;
   //Absolute_path folder_path       = path();
@@ -242,14 +240,8 @@ bool Folder::adjust_with_directory( Directory* directory )
             }
         }
 
-        Z_FOR_EACH( Typed_folder_map, _typed_folder_map, it )
-        {
-            Typed_folder* typed_folder = it->second;
+        something_changed = ordered_directory_adjustment(file_list_map);
 
-            typed_folder->remove_duplicates_from_list( &file_list_map[ typed_folder ] );
-
-            something_changed |= typed_folder->adjust_with_directory( file_list_map[ typed_folder ] );
-        }
     }
     catch( exception& x ) 
     {
@@ -262,6 +254,32 @@ bool Folder::adjust_with_directory( Directory* directory )
 
     return something_changed;
 }
+
+
+
+bool Folder::ordered_directory_adjustment(File_list_map& file_list_map)
+{
+    bool something_changed = false;
+
+    // Falls die Job-Kette geändert wurde, dann wollen wir die Dateibasierten Aufträge (.order.xml) erst danach neu laden
+    something_changed |= typed_adjust_with_directory(file_list_map, _typed_folder_map.find(".job_chain.xml")->second);
+
+    Z_FOR_EACH(Typed_folder_map, _typed_folder_map, it) {
+        if (it->first.compare(".job_chain.xml") == 0)
+            continue;
+
+        something_changed |= typed_adjust_with_directory(file_list_map, it->second);
+    }
+
+    return something_changed;
+}
+
+bool Folder::typed_adjust_with_directory(File_list_map& file_list_map, Typed_folder* typed_folder)
+{
+    typed_folder->remove_duplicates_from_list(&file_list_map[typed_folder]);
+    return typed_folder->adjust_with_directory(file_list_map[typed_folder]);
+}
+
 
 //------------------------------------------------------------------------------Folder::dom_element
 
