@@ -240,7 +240,7 @@ bool Folder::adjust_with_directory( Directory* directory )
             }
         }
 
-        something_changed = ordered_directory_adjustment(file_list_map);
+        something_changed = adjust_with_directory_ordered(file_list_map);
 
     }
     catch( exception& x ) 
@@ -256,23 +256,23 @@ bool Folder::adjust_with_directory( Directory* directory )
 }
 
 
-
-bool Folder::ordered_directory_adjustment(File_list_map& file_list_map)
+bool Folder::adjust_with_directory_ordered(File_list_map& file_list_map)
 {
     bool something_changed = false;
 
-    // Falls die Job-Kette geändert wurde, dann wollen wir die Dateibasierten Aufträge (.order.xml) erst danach neu laden
+    // Falls die Jobkette geändert wurde, dann wollen wir die dateibasierten Aufträge (.order.xml) erst danach neu laden
     something_changed |= typed_adjust_with_directory(file_list_map, _typed_folder_map.find(".job_chain.xml")->second);
 
     Z_FOR_EACH(Typed_folder_map, _typed_folder_map, it) {
-        if (it->first.compare(".job_chain.xml") == 0)
-            continue;
-
-        something_changed |= typed_adjust_with_directory(file_list_map, it->second);
+        Typed_folder* t = it->second;
+        if (t->subsystem() == _spooler->order_subsystem()) {  // Geänderte Jobketten zuerst, dann Aufträge usw.
+            something_changed |= typed_adjust_with_directory(file_list_map, t);
+        }
     }
 
     return something_changed;
 }
+
 
 bool Folder::typed_adjust_with_directory(File_list_map& file_list_map, Typed_folder* typed_folder)
 {

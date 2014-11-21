@@ -450,12 +450,11 @@ struct Folder : file_based< Folder, Subfolder_folder, Folder_subsystem >,
     bool                        adjust_with_directory       ( directory_observer::Directory* );
 
   private:
-      typedef stdext::hash_map< Typed_folder*, list< const directory_observer::Directory_entry* > >   File_list_map;
+    typedef stdext::hash_map<Typed_folder*, list<const directory_observer::Directory_entry*> >   File_list_map;
+    bool adjust_with_directory_ordered(const File_list_map&);
+    bool typed_adjust_with_directory(const File_list_map&, Typed_folder*);
+
   public:
-    bool ordered_directory_adjustment(File_list_map& file_list_map);
-    bool typed_adjust_with_directory(File_list_map& file_list_map, Typed_folder* typed_folder);
-
-
     Typed_folder*               typed_folder                ( const File_based_subsystem* ) const;
     Typed_folder*               typed_folder                (const string& type_name) const;
     Process_class_folder*       process_class_folder        ()                                      { return _process_class_folder; }
