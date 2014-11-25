@@ -2534,7 +2534,7 @@ Order* Job_chain::add_order_from_database_record(Transaction* ta, const Record& 
     if (is_file_based)
     {
         Z_LOG2("scheduler", "Order from database changes " << order->path() << "\n");
-        //assert(!order->_job_chain);
+        assert(!order->_job_chain);
         assert(!order->_task);
     }
 
@@ -3163,8 +3163,7 @@ Job_chain* Job_chain::on_replace_now()
                     ptr<Order> order = *it;
 
                     // dateibasierte Aufträge des lokalen Standing_order_subsystems werden unten behandelt
-                    if (!_spooler->standing_order_subsystem()->order_or_null(path(), order->id().as_string()))
-                    {
+                    if (!_spooler->standing_order_subsystem()->order_or_null(path(), order->id().as_string())) {
                         remove_order(order);
                         replacement()->add_order(order);
                     }
@@ -3182,7 +3181,6 @@ Job_chain* Job_chain::on_replace_now()
         if (order_subsystem()->normalized_path(o->_file_based_job_chain_path) == normalized_job_chain_path) {
             if (o->_job_chain) {
                 remove_order(o);
-                replacement()->add_order(o);
             }
         }
     }
