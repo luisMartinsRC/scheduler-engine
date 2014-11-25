@@ -3149,7 +3149,6 @@ Job_chain* Job_chain::on_replace_now()
     if( !can_be_replaced_now() )  assert(0), z::throw_xc( Z_FUNCTION, obj_name(), "!can_be_removed_now" );
 
     //2012-10-29 Sollte hier nicht der Zustand zurückgeladen werden? Etwa so: replacement()->database_record_load(...);
-
     Z_FOR_EACH( Node_list, replacement()->_node_list, it )
     {
         if( Order_queue_node* new_job_chain_node = Order_queue_node::try_cast( *it ) )
@@ -3162,9 +3161,28 @@ Job_chain* Job_chain::on_replace_now()
                 Z_FOR_EACH( Order_queue::Queue, queue, it )
                 {
                     ptr<Order> order = *it;
-                    remove_order( order );
-                    replacement()->add_order( order );
+
+                    // dateibasierte Aufträge des lokalen Standing_order_subsystems werden unten behandelt
+                    if (!_spooler->standing_order_subsystem()->order_or_null(path(), order->id().as_string()))
+                    {
+                        remove_order(order);
+                        replacement()->add_order(order);
+                    }
                 }
+            }
+        }
+    }
+
+    // Wenn die Jobkette geändert wurde, müssen auch die dateibasierten Aufträge neu geladen werden
+    // Alle dateibasierten Aufträge entfernen:
+    string normalized_job_chain_path = order_subsystem()->normalized_path(path());
+
+    Z_FOR_EACH_CONST(Standing_order_subsystem::File_based_map, _spooler->standing_order_subsystem()->_file_based_map, i) {
+        Order* o = i->second;
+        if (order_subsystem()->normalized_path(o->_file_based_job_chain_path) == normalized_job_chain_path) {
+            if (o->_job_chain) {
+                remove_order(o);
+                replacement()->add_order(o);
             }
         }
     }
@@ -3172,10 +3190,10 @@ Job_chain* Job_chain::on_replace_now()
     close();
 
     // Wenn die Jobkette geändert wurde, müssen auch die dateibasierten Aufträge neu geladen werden
-    string normalized_job_chain_path = order_subsystem()->normalized_path(path());
+    // Alle dateibasierten Aufträge zum neu laden markieren:
     Z_FOR_EACH_CONST(Standing_order_subsystem::File_based_map, _spooler->standing_order_subsystem()->_file_based_map, i) {
         Order* o = i->second;
-        if (order_subsystem()->normalized_path(o->job_chain_path()) == normalized_job_chain_path) {
+        if (!o->_job_chain && order_subsystem()->normalized_path(o->_file_based_job_chain_path) == normalized_job_chain_path) {
             o->set_force_file_reread();
         }
     }
