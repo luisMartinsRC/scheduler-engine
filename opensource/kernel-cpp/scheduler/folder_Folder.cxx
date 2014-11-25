@@ -260,26 +260,25 @@ bool Folder::adjust_with_directory_ordered(File_list_map& file_list_map)
 {
     bool something_changed = false;
 
-    // Falls die Jobkette geändert wurde, dann wollen wir die dateibasierten Aufträge (.order.xml) erst danach neu laden
-    something_changed |= typed_adjust_with_directory(file_list_map, _typed_folder_map.find(".job_chain.xml")->second);
+    // Reihenfolge festlegen
+    // Z.B. Falls eine Jobkette geändert wurde, dann wollen wir die dateibasierten Aufträge (.order.xml) erst danach neu laden
+    vector<Typed_folder*> typed_folders;
+    typed_folders.push_back(_subfolder_folder);
+    typed_folders.push_back(_process_class_folder);
+    typed_folders.push_back(_schedule_folder);
+    typed_folders.push_back(_lock_folder);
+    typed_folders.push_back(_job_folder);
+    typed_folders.push_back(_job_chain_folder);
+    typed_folders.push_back(_standing_order_folder);
 
-    Z_FOR_EACH(Typed_folder_map, _typed_folder_map, it) {
-        Typed_folder* t = it->second;
-        if (t->subsystem() == _spooler->order_subsystem()) {  // Geänderte Jobketten zuerst, dann Aufträge usw.
-            something_changed |= typed_adjust_with_directory(file_list_map, t);
-        }
+    Z_FOR_EACH(vector<Typed_folder*>, typed_folders, it) {
+        Typed_folder* typed_folder = *it;
+        typed_folder->remove_duplicates_from_list(&file_list_map[typed_folder]);
+        something_changed |= typed_folder->adjust_with_directory(file_list_map[typed_folder]);
     }
 
     return something_changed;
 }
-
-
-bool Folder::typed_adjust_with_directory(File_list_map& file_list_map, Typed_folder* typed_folder)
-{
-    typed_folder->remove_duplicates_from_list(&file_list_map[typed_folder]);
-    return typed_folder->adjust_with_directory(file_list_map[typed_folder]);
-}
-
 
 //------------------------------------------------------------------------------Folder::dom_element
 

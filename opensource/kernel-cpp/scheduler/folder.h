@@ -451,8 +451,7 @@ struct Folder : file_based< Folder, Subfolder_folder, Folder_subsystem >,
 
   private:
     typedef stdext::hash_map<Typed_folder*, list<const directory_observer::Directory_entry*> >   File_list_map;
-    bool adjust_with_directory_ordered(const File_list_map&);
-    bool typed_adjust_with_directory(const File_list_map&, Typed_folder*);
+    bool adjust_with_directory_ordered(File_list_map&);
 
   public:
     Typed_folder*               typed_folder                ( const File_based_subsystem* ) const;
