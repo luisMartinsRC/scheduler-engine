@@ -1,6 +1,5 @@
 package com.sos.scheduler.engine.tests.scheduler.job.manyjobs
 
-import ManyJobsIT._
 import com.sos.scheduler.engine.common.time.ScalaJoda.{DurationRichInt, sleep}
 import com.sos.scheduler.engine.common.time.Stopwatch
 import com.sos.scheduler.engine.data.filebased.FileBasedActivatedEvent
@@ -8,9 +7,9 @@ import com.sos.scheduler.engine.data.job.{JobPath, TaskStartedEvent}
 import com.sos.scheduler.engine.eventbus.EventHandler
 import com.sos.scheduler.engine.test.binary.CppBinariesDebugMode
 import com.sos.scheduler.engine.test.configuration.TestConfiguration
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.test.util.time.WaitForCondition.waitForCondition
+import com.sos.scheduler.engine.tests.scheduler.job.manyjobs.ManyJobsIT._
 import org.junit.runner.RunWith
 import org.scalatest.FunSuite
 import org.scalatest.junit.JUnitRunner
@@ -48,7 +47,7 @@ final class ManyJobsIT extends FunSuite with ScalaSchedulerTest {
                 <modify_job job={o.path.string} cmd="unstop"/>
               })
         sleep(duration)
-        controller.getEventBus.dispatchEvents()
+        controller.eventBus.dispatchEvents()
         System.err.println(s"$taskCount tasks in ${duration.getStandardSeconds}s, ${1000f * taskCount / duration.getMillis} tasks/s")
       }
     }

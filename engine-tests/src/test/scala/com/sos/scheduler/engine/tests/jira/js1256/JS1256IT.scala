@@ -1,12 +1,11 @@
 package com.sos.scheduler.engine.tests.jira.js1256
 
-import com.google.common.io.{Closer, Files}
+import com.google.common.io.Closer
 import com.sos.scheduler.engine.common.scalautil.AutoClosing.autoClosing
 import com.sos.scheduler.engine.common.scalautil.FileUtils.implicits._
 import com.sos.scheduler.engine.data.jobchain.JobChainPath
 import com.sos.scheduler.engine.data.order.OrderFinishedEvent
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.tests.jira.js1256.JS1256IT._
 import java.io.{File, RandomAccessFile}
 import org.junit.runner.RunWith
@@ -21,9 +20,8 @@ import org.scalatest.junit.JUnitRunner
 final class JS1256IT extends FreeSpec with ScalaSchedulerTest {
   s"file_order_source with 4GB file - $FileSize bytes" in {
     autoClosing(Closer.create()) { implicit closer ⇒
-      val directory = Files.createTempDir()
-      onClose { directory.delete() }
-      val bigFile = directory / s"${classOf[JS1256IT].getName}.tmp"
+      val directory = testEnvironment.newFileOrderSourceDirectory()
+      val bigFile = directory / "JS-1256.tmp"
       onClose { bigFile.delete() }
       allocateFile(bigFile, FileSize)
       autoClosing(controller.newEventPipe()) { eventPipe ⇒

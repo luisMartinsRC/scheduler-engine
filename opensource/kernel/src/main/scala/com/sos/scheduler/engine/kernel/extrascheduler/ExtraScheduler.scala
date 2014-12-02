@@ -9,7 +9,6 @@ import com.sos.scheduler.engine.kernel.extrascheduler.ExtraScheduler._
 import com.sos.scheduler.engine.kernel.extrascheduler.ExtraScheduler.logger
 import com.sos.scheduler.engine.kernel.scheduler.SchedulerConstants._
 import java.io.{File, IOException, InputStream, InputStreamReader}
-import java.net.URI
 import java.nio.charset.Charset
 import scala.collection.JavaConversions._
 import scala.collection.immutable
@@ -23,9 +22,10 @@ final class ExtraScheduler(
 extends AutoCloseable with HasCloser {
 
   private val tcpAddressOption = tcpPort map { o ⇒ SchedulerAddress("127.0.0.1", o) }
-  private val uriOption = httpPort map { o ⇒ new URI(s"http://127.0.0.1:$o") }
+  private val uriOption = httpPort map { o ⇒ s"http://127.0.0.1:$o" }
   val name = (uriOption orElse tcpAddressOption getOrElse sys.error("httpPort and tcpPort not given")).toString
   private val activatedPromise = Promise[Unit]()
+  private var started = false
 
   onClose {
     activatedPromise.tryFailure(new IllegalStateException("ExtraScheduler has been closed") )
@@ -35,6 +35,7 @@ extends AutoCloseable with HasCloser {
    * @return Future, successful when ExtraScheduler is active and therefore ready to use (same as activatedFuture).
    */
   def start(): Future[Unit] = {
+    if (started) throw new IllegalStateException
     closeOnError {
       val process = startProcess()
       whenNotClosedAtShutdown {
@@ -46,6 +47,7 @@ extends AutoCloseable with HasCloser {
         process.destroy()  // StdoutCollectorThread endet erst, wenn Prozess geendet hat
         process.waitFor()
       }
+      started = true
     }
     activatedFuture
   }
@@ -101,7 +103,7 @@ extends AutoCloseable with HasCloser {
    */
   def activatedFuture = activatedPromise.future
 
-  def uri: URI = uriOption getOrElse sys.error("httpPort not given")
+  def uri = uriOption getOrElse sys.error("httpPort not given")
 
   def tcpAddress: SchedulerAddress = tcpAddressOption getOrElse sys.error("httpPort not given")
 

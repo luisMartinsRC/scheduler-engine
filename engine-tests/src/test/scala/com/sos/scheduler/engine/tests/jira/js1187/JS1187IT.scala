@@ -4,8 +4,7 @@ import com.sos.scheduler.engine.common.scalautil.AutoClosing.autoClosing
 import com.sos.scheduler.engine.common.scalautil.FileUtils.implicits._
 import com.sos.scheduler.engine.common.system.Files.makeDirectory
 import com.sos.scheduler.engine.common.time.ScalaJoda._
-import com.sos.scheduler.engine.common.utils.FreeTcpPortFinder
-import com.sos.scheduler.engine.common.utils.FreeTcpPortFinder.{alternateTcpPortRange, findRandomFreeTcpPort}
+import com.sos.scheduler.engine.common.utils.FreeTcpPortFinder.findRandomFreeTcpPorts
 import com.sos.scheduler.engine.data.job.{JobPath, TaskId}
 import com.sos.scheduler.engine.data.log.{ErrorLogEvent, WarningLogEvent}
 import com.sos.scheduler.engine.data.message.MessageCode
@@ -15,8 +14,7 @@ import com.sos.scheduler.engine.main.CppBinary
 import com.sos.scheduler.engine.test.EventBusTestFutures.implicits._
 import com.sos.scheduler.engine.test.SchedulerTestUtils.{job, runJobAndWaitForEnd, runJobFuture, task}
 import com.sos.scheduler.engine.test.configuration.TestConfiguration
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.tests.jira.js1187.JS1187IT._
 import org.junit.runner.RunWith
 import org.scalatest.FreeSpec
@@ -31,8 +29,7 @@ import scala.concurrent.Await
 @RunWith(classOf[JUnitRunner])
 final class JS1187IT extends FreeSpec with ScalaSchedulerTest {
 
-  private lazy val tcpPort = FreeTcpPortFinder.findRandomFreeTcpPort()
-  private lazy val agentHttpPort = findRandomFreeTcpPort(alternateTcpPortRange)
+  private lazy val Seq(tcpPort, agentHttpPort) = findRandomFreeTcpPorts(2)
   private lazy val agentUri = s"http://127.0.0.1:$agentHttpPort"
 
   protected override lazy val testConfiguration = TestConfiguration(
@@ -53,7 +50,7 @@ final class JS1187IT extends FreeSpec with ScalaSchedulerTest {
   }
 
   "With unreachable remote_scheduler, the waiting task can be killed" in {
-    val warningFuture = controller.getEventBus.eventFuture[WarningLogEvent](_.codeOption == Some(MessageCode("SCHEDULER-488")))
+    val warningFuture = controller.eventBus.eventFuture[WarningLogEvent](_.codeOption == Some(MessageCode("SCHEDULER-488")))
     val (taskId, taskClosedFuture) = runJobFuture(UnreachableRemoteJobPath)
     Await.result(warningFuture, TestTimeout)
     requireIsWaitingForAgent(taskId)
@@ -63,7 +60,7 @@ final class JS1187IT extends FreeSpec with ScalaSchedulerTest {
 
   "With unreachable remote_scheduler, task waits until agent is reachable" in {
     autoClosing(newExtraScheduler(agentHttpPort)) { agent ⇒
-      val warningFuture = controller.getEventBus.eventFuture[WarningLogEvent](_.codeOption == Some(MessageCode("SCHEDULER-488")))
+      val warningFuture = controller.eventBus.eventFuture[WarningLogEvent](_.codeOption == Some(MessageCode("SCHEDULER-488")))
       val (taskId, taskClosedFuture) = runJobFuture(UnreachableRemoteJobPath)
       Await.result(warningFuture, TestTimeout)
       requireIsWaitingForAgent(taskId)

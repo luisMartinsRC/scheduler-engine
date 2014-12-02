@@ -1,12 +1,12 @@
 package com.sos.scheduler.engine.test
 
-import _root_.scala.collection.JavaConversions._
-import com.sos.scheduler.engine.common.scalautil.AutoClosing.autoClosing
+import com.sos.scheduler.engine.common.scalautil.HasCloser.implicits._
 import com.sos.scheduler.engine.persistence.SchedulerDatabases.persistenceUnitName
 import com.sos.scheduler.engine.test.configuration.{JdbcDatabaseConfiguration, TestConfiguration}
 import javax.persistence.Persistence.createEntityManagerFactory
 import javax.persistence.PersistenceException
 import org.joda.time.Duration
+import scala.collection.JavaConversions._
 
 trait ProvidesTestEnvironment extends ProvidesTestDirectory {
 
@@ -16,7 +16,7 @@ trait ProvidesTestEnvironment extends ProvidesTestDirectory {
   protected def testConfiguration: TestConfiguration
 
   lazy val testEnvironment =
-    TestEnvironment(testConfiguration, testDirectory)
+    TestEnvironment(testConfiguration, testDirectory).registerCloseable
 
   private lazy val entityManagerFactory = {
     val properties: Map[String, String] =

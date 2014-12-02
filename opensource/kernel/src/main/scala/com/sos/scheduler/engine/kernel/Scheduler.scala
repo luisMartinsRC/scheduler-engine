@@ -4,7 +4,7 @@ import com.google.common.base.MoreObjects.firstNonNull
 import com.google.inject.Guice.createInjector
 import com.google.inject.Injector
 import com.sos.scheduler.engine.client.command.HttpSchedulerCommandClient
-import com.sos.scheduler.engine.common.async.CallRunner
+import com.sos.scheduler.engine.common.async.{CallQueue, CallRunner}
 import com.sos.scheduler.engine.common.inject.GuiceImplicits._
 import com.sos.scheduler.engine.common.log.LoggingFunctions.enableJavaUtilLoggingOverSLF4J
 import com.sos.scheduler.engine.common.scalautil.HasCloser.implicits._
@@ -17,12 +17,14 @@ import com.sos.scheduler.engine.cplusplus.runtime.{CppProxy, CppProxyInvalidated
 import com.sos.scheduler.engine.data.filebased.{FileBasedEvent, FileBasedType}
 import com.sos.scheduler.engine.data.log.SchedulerLogLevel
 import com.sos.scheduler.engine.data.scheduler.SchedulerCloseEvent
+import com.sos.scheduler.engine.data.xmlcommands.XmlCommand
 import com.sos.scheduler.engine.eventbus.{EventSubscription, SchedulerEventBus}
 import com.sos.scheduler.engine.kernel.Scheduler._
 import com.sos.scheduler.engine.kernel.async.SchedulerThreadFutures.{directOrSchedulerThreadFuture, inSchedulerThread}
 import com.sos.scheduler.engine.kernel.async.{CppCall, SchedulerThreadCallQueue}
 import com.sos.scheduler.engine.kernel.command.{CommandSubsystem, UnknownCommandException}
 import com.sos.scheduler.engine.kernel.configuration.SchedulerModule
+import com.sos.scheduler.engine.kernel.configuration.SchedulerModule.LazyBoundCppSingletons
 import com.sos.scheduler.engine.kernel.cppproxy.SpoolerC
 import com.sos.scheduler.engine.kernel.database.DatabaseSubsystem
 import com.sos.scheduler.engine.kernel.event.EventSubsystem
@@ -38,6 +40,7 @@ import java.io.ByteArrayInputStream
 import java.lang.Thread.currentThread
 import javax.annotation.Nullable
 import javax.inject.{Inject, Singleton}
+import org.joda.time.DateTimeZone
 import org.joda.time.DateTimeZone.UTC
 import org.joda.time.Instant.now
 import scala.collection.JavaConversions._
@@ -121,7 +124,13 @@ with HasCloser {
   }
 
   @ForCpp private def onActivate(): Unit = {
+    initializeCppDependencySingletons()
     pluginSubsystem.activate()
+  }
+
+  private def initializeCppDependencySingletons(): Unit = {
+    // Eagerly call all C++ providers now to avoid later deadlock (Scheduler lock and DI lock)
+    for (o ← injector.apply[LazyBoundCppSingletons].interfaces) injector.getInstance(o)
   }
 
   @ForCpp private def onActivated(): Unit = {
@@ -149,7 +158,7 @@ with HasCloser {
   }
 
   @ForCpp private def sendCommandAndReplyToStout(uri: String, bytes: Array[Byte]): Unit = {
-    val future = injector.apply[HttpSchedulerCommandClient].execute(uri, SafeXML.load(new ByteArrayInputStream(bytes)))
+    val future = injector.apply[HttpSchedulerCommandClient].uncheckedExecute(uri, SafeXML.load(new ByteArrayInputStream(bytes)))
     val response: String = Await.result(future, Duration.Inf)
     System.out.println(response)
   }
@@ -179,18 +188,32 @@ with HasCloser {
 
   def terminate(): Unit = {
     if (!isClosed) {
-      directOrSchedulerThreadFuture {
-        if (!isClosed) {
-          try cppProxy.cmd_terminate()
-          catch {
-            case x: CppProxyInvalidatedException ⇒
-              logger.trace("Scheduler.terminate() ignored because C++ object has already been destroyed")
+      try
+        directOrSchedulerThreadFuture {
+          if (!isClosed) {
+            try cppProxy.cmd_terminate()
+            catch {
+              case x: CppProxyInvalidatedException ⇒
+                logger.trace("Scheduler.terminate() ignored because C++ object has already been destroyed")
+            }
           }
         }
+      catch {
+        case e: CallQueue.ClosedException ⇒ logger.debug(s"Ignored: $e")
       }
       // Return immediately, discarding the future
     }
   }
+
+  def executeXmls(e: Iterable[scala.xml.NodeBuffer]): Result = executeXmlString(<commands>{e}</commands>.toString())
+
+  def executeXml(o: XmlCommand): Result = executeXmlString(o.xmlString)
+
+  def executeXmls(e: scala.xml.NodeSeq): Result = executeXmlString(<commands>{e}</commands>.toString())
+
+  def executeXml(e: scala.xml.Elem): Result = executeXmlString(e.toString())
+
+  private def executeXmlString(o: String) = Result(executeXml(o))
 
   /** Löst bei einem ERROR-Element eine Exception aus. */
   def executeXml(xml: String): String = {
@@ -244,6 +267,10 @@ with HasCloser {
 object Scheduler {
   private val logger = Logger(getClass)
   private val mavenProperties = new MavenProperties("com/sos/scheduler/engine/kernel/maven.properties")
+  private val _defaultTimezoneId = DateTimeZone.getDefault.getID
+
+  @ForCpp
+  def defaultTimezoneId: String = _defaultTimezoneId
 
   @ForCpp def newInjector(cppProxy: SpoolerC, @Nullable controllerBridgeOrNull: SchedulerControllerBridge, configurationXml: String) = {
     val controllerBridge = firstNonNull(controllerBridgeOrNull, EmptySchedulerControllerBridge.singleton)
@@ -265,4 +292,9 @@ object Scheduler {
       catch { case e: NoSuchElementException ⇒ "" }
     else
       ""
+
+  final case class Result(string: String) {
+    lazy val elem: scala.xml.Elem = SafeXML.loadString(string)
+    lazy val answer = elem \ "answer"
+  }
 }

@@ -8,7 +8,7 @@ import com.sos.scheduler.engine.common.scalautil.xmls.ScalaXmls.implicits._
 import com.sos.scheduler.engine.common.system.Files.makeDirectory
 import com.sos.scheduler.engine.common.time.ScalaJoda._
 import com.sos.scheduler.engine.common.time.Stopwatch
-import com.sos.scheduler.engine.common.utils.FreeTcpPortFinder.findRandomFreeTcpPort
+import com.sos.scheduler.engine.common.utils.FreeTcpPortFinder.findRandomFreeTcpPorts
 import com.sos.scheduler.engine.data.filebased.FileBasedReplacedEvent
 import com.sos.scheduler.engine.data.job.{JobPath, TaskClosedEvent, TaskId}
 import com.sos.scheduler.engine.data.log.{ErrorLogEvent, WarningLogEvent}
@@ -23,8 +23,7 @@ import com.sos.scheduler.engine.main.CppBinary
 import com.sos.scheduler.engine.test.EventBusTestFutures.implicits._
 import com.sos.scheduler.engine.test.SchedulerTestUtils.{awaitResults, awaitSuccess, executionContext, job, processClass, runJobAndWaitForEnd, runJobFuture, task}
 import com.sos.scheduler.engine.test.configuration.TestConfiguration
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.tests.jira.js1188.JS1188IT._
 import org.junit.runner.RunWith
 import org.scalatest.FreeSpec
@@ -40,8 +39,8 @@ import scala.concurrent.Future
 @RunWith(classOf[JUnitRunner])
 final class JS1188IT extends FreeSpec with ScalaSchedulerTest {
 
-  private lazy val tcpPort = findRandomFreeTcpPort()
-  private lazy val agentRefs = List.fill(n) { new AgentRef() }
+  private lazy val tcpPort :: agentTcpPorts = findRandomFreeTcpPorts(1 + n)
+  private lazy val agentRefs = agentTcpPorts map AgentRef ensuring { _.size == n }
   private lazy val runningAgents = mutable.Map[AgentRef, ExtraScheduler]()
   private var waitingTaskClosedFuture: Future[TaskClosedEvent] = null
   private var waitingStopwatch: Stopwatch = null
@@ -121,7 +120,7 @@ final class JS1188IT extends FreeSpec with ScalaSchedulerTest {
       }
       val (_, jobFuture) = runJobFuture(ReplaceTestJobPath)
       eventPipe.nextAny[WarningLogEvent].codeOption shouldEqual Some(InaccessibleAgentMessageCode)
-      controller.getEventBus.awaitingKeyedEvent[FileBasedReplacedEvent](ReplaceProcessClassPath) {
+      controller.eventBus.awaitingKeyedEvent[FileBasedReplacedEvent](ReplaceProcessClassPath) {
         testEnvironment.fileFromPath(ReplaceProcessClassPath).xml = processClassXml("test-replace", List(agentRefs(1)))
         instance[FolderSubsystem].updateFolders()
       }
@@ -147,7 +146,7 @@ final class JS1188IT extends FreeSpec with ScalaSchedulerTest {
         e.codeOption == Some(MessageCode("SCHEDULER-280")) ||
         e.codeOption == Some(MessageCode("Z-JAVA-105")) && (e.message contains classOf[FailableSelector.CancelledException].getName)
       controller.toleratingErrorLogEvent(expectedErrorLogEvent) {
-        controller.getEventBus.awaitingKeyedEvent[FileBasedReplacedEvent](ReplaceProcessClassPath) {
+        controller.eventBus.awaitingKeyedEvent[FileBasedReplacedEvent](ReplaceProcessClassPath) {
           testEnvironment.fileFromPath(ReplaceProcessClassPath).xml = processClassXml("test-replace", Nil)
           instance[FolderSubsystem].updateFolders()
         }
@@ -195,7 +194,6 @@ final class JS1188IT extends FreeSpec with ScalaSchedulerTest {
 }
 
 private object JS1188IT {
-  private val AgentTcpPortRange = 53000 until 54000   // Ports must be free for several minutes to test inaccessible (not running) agents
   private val AgentConnectRetryDelay = 15.s
   private val n = 4
   private val AgentsProcessClassPath = ProcessClassPath("/agents")
@@ -205,8 +203,7 @@ private object JS1188IT {
   private val InaccessibleAgentMessageCode = MessageCode("SCHEDULER-488")
   private val WaitingForAgentMessageCode = MessageCode("SCHEDULER-489")
 
-  private class AgentRef {
-    val port = findRandomFreeTcpPort(AgentTcpPortRange)
+  private case class AgentRef(port: Int) {
     def uri = s"http://127.0.0.1:$port"
   }
 

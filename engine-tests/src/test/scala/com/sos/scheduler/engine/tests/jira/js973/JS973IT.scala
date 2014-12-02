@@ -19,9 +19,7 @@ import com.sos.scheduler.engine.kernel.order.{OrderSubsystem, UnmodifiableOrder}
 import com.sos.scheduler.engine.kernel.scheduler.SchedulerConstants.remoteSchedulerParameterName
 import com.sos.scheduler.engine.main.CppBinary
 import com.sos.scheduler.engine.test.EventBusTestFutures.implicits._
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
-import com.sos.scheduler.engine.test.scalatest.HasCloserBeforeAndAfterAll
+import com.sos.scheduler.engine.test.scalatest.{HasCloserBeforeAndAfterAll, ScalaSchedulerTest}
 import com.sos.scheduler.engine.tests.jira.js973.JS973IT._
 import java.io.File
 import java.nio.file.Files
@@ -44,6 +42,10 @@ final class JS973IT extends FreeSpec with ScalaSchedulerTest with HasCloserBefor
     agents foreach { _.extraScheduler.start() }   // Parallel mit Test-Scheduler starten
     controller.waitUntilSchedulerIsActive()
     scheduler executeXml <process_class name="test-c" remote_scheduler={processClassAgent.extraScheduler.tcpAddress.string}/>
+  }
+
+  onClose {
+    agents foreach { _.close() }
   }
 
   s"Without parameter $remoteSchedulerParameterName runs job in our scheduler" in {
@@ -96,12 +98,12 @@ final class JS973IT extends FreeSpec with ScalaSchedulerTest with HasCloserBefor
   }
 
   "File_order_sink_module::create_instance_impl" in {
-    val fileOrdersDir = Files.createTempDirectory("test")
+    val fileOrdersDir = testEnvironment.newFileOrderSourceDirectory()
     val orderFile = fileOrdersDir.toFile / "test.txt"
     orderFile.contentString = "test"
     val jobChainPath = JobChainPath("/test-file-order")
     val orderKey = jobChainPath.orderKey(orderFile.getAbsolutePath)
-    controller.getEventBus.awaitingKeyedEvent[OrderFinishedEvent](orderKey) {
+    controller.eventBus.awaitingKeyedEvent[OrderFinishedEvent](orderKey) {
       scheduler executeXml
         <job_chain name={jobChainPath.name}>
           <file_order_source directory={fileOrdersDir.toString} regex="^test\.txt$"/>
@@ -182,7 +184,7 @@ final class JS973IT extends FreeSpec with ScalaSchedulerTest with HasCloserBefor
 
   @HotEventHandler
   def handle(e: OrderFinishedEvent, o: UnmodifiableOrder): Unit = {
-    controller.getEventBus.publishCold(OrderFinishedWithResultEvent(e.orderKey, o.parameters(ResultVariableName)))
+    controller.eventBus.publishCold(OrderFinishedWithResultEvent(e.orderKey, o.parameters(ResultVariableName)))
   }
 
   private val orderIdGenerator = (1 to Int.MaxValue).iterator map { i => new OrderId(i.toString) }

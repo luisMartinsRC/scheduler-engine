@@ -9,8 +9,7 @@ import com.sos.scheduler.engine.eventbus.EventHandlerFailedEvent
 import com.sos.scheduler.engine.kernel.async.SchedulerThreadCallQueue
 import com.sos.scheduler.engine.kernel.async.SchedulerThreadFutures.inSchedulerThread
 import com.sos.scheduler.engine.test.SchedulerTestUtils.awaitSuccess
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.tests.jira.js1207.JS1207IT._
 import org.junit.runner.RunWith
 import org.scalatest.FreeSpec
@@ -25,6 +24,8 @@ import scala.concurrent.Promise
  */
 @RunWith(classOf[JUnitRunner])
 final class JS1207IT extends FreeSpec with ScalaSchedulerTest {
+
+  import controller.eventBus
 
   private implicit lazy val schedulerThreadCallQueue = instance[SchedulerThreadCallQueue]
 
@@ -94,8 +95,6 @@ final class JS1207IT extends FreeSpec with ScalaSchedulerTest {
       }
       counters.toMap collect { case (path, statistic) if statistic.runningMaximum != 0 ⇒ path → statistic.runningMaximum }
     }
-
-  private def eventBus = controller.getEventBus
 }
 
 private object JS1207IT {

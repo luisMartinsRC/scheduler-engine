@@ -33,7 +33,7 @@ trait CallQueue extends AutoCloseable {
     add(ShortTermCall { () ⇒ f })
   }
 
-  def add[A](o: TimedCall[A])
+  def add[A](o: TimedCall[A]): Unit
 
   def tryCancel[A](o: TimedCall[A]): Boolean
 
@@ -51,4 +51,6 @@ trait CallQueue extends AutoCloseable {
 
 object CallQueue {
   private val logger = Logger(getClass)
+
+  final class ClosedException(override val getMessage: String) extends IllegalStateException
 }

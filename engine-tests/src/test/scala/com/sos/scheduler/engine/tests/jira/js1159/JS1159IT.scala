@@ -3,13 +3,12 @@ package com.sos.scheduler.engine.tests.jira.js1159
 import com.sos.scheduler.engine.common.scalautil.FileUtils.implicits._
 import com.sos.scheduler.engine.common.system.Files.makeDirectory
 import com.sos.scheduler.engine.common.time.ScalaJoda._
-import com.sos.scheduler.engine.common.utils.FreeTcpPortFinder.{alternateTcpPortRange, findRandomFreeTcpPort}
+import com.sos.scheduler.engine.common.utils.FreeTcpPortFinder.findRandomFreeTcpPorts
 import com.sos.scheduler.engine.data.job.JobPath
 import com.sos.scheduler.engine.kernel.extrascheduler.ExtraScheduler
 import com.sos.scheduler.engine.main.CppBinary
 import com.sos.scheduler.engine.test.SchedulerTestUtils.runJobAndWaitForEnd
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.tests.jira.js1159.JS1159IT._
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
@@ -23,8 +22,7 @@ import scala.concurrent.Await
 @RunWith(classOf[JUnitRunner])
 final class JS1159IT extends FreeSpec with ScalaSchedulerTest with BeforeAndAfter {
 
-  private lazy val agentTcpPort = findRandomFreeTcpPort()
-  private lazy val agentHttpPort = findRandomFreeTcpPort(alternateTcpPortRange)
+  private lazy val Seq(agentTcpPort, agentHttpPort) = findRandomFreeTcpPorts(2)
   private lazy val extraScheduler = {
     val logDir = controller.environment.logDirectory / "agent"
     makeDirectory(logDir)
@@ -47,7 +45,7 @@ final class JS1159IT extends FreeSpec with ScalaSchedulerTest with BeforeAndAfte
     extraScheduler.start()
     registerAutoCloseable(extraScheduler)
     scheduler executeXml <process_class name="agent-tcp" remote_scheduler={extraScheduler.tcpAddress.string}/>
-    scheduler executeXml <process_class name="agent-http" remote_scheduler={extraScheduler.uri.toString}/>
+    scheduler executeXml <process_class name="agent-http" remote_scheduler={extraScheduler.uri}/>
     Await.result(extraScheduler.activatedFuture, TestTimeout)
   }
 

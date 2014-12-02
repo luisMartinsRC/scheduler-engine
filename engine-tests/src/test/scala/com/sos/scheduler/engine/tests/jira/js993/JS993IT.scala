@@ -5,8 +5,7 @@ import com.sos.scheduler.engine.data.job.{JobPath, TaskStartedEvent}
 import com.sos.scheduler.engine.data.log.ErrorLogEvent
 import com.sos.scheduler.engine.eventbus.EventHandler
 import com.sos.scheduler.engine.test.configuration.TestConfiguration
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import org.junit.runner.RunWith
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
@@ -24,7 +23,7 @@ final class JS993IT extends FunSuite with ScalaSchedulerTest {
   List("spidermonkey", "javascript") foreach { language =>
     test(s"language=$language should work on 32bit and rejected on 64bit") {
       val jobPath = JobPath(s"/test-$language")
-      controller.getEventBus.dispatchEvents()   // Ruft ggf. handle(ErrorLogEvent)
+      controller.eventBus.dispatchEvents()   // Ruft ggf. handle(ErrorLogEvent)
       bitness match {
         case Bits64 =>
           assert(errorLogged, "Error SCHEDULER-482 expected")

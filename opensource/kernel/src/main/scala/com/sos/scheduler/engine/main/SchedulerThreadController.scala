@@ -12,6 +12,7 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 import org.joda.time.Duration
 import org.scalactic.Requirements._
+import scala.collection.JavaConversions._
 
 /**
  * Steuert den [[SchedulerThread]].
@@ -19,7 +20,7 @@ import org.scalactic.Requirements._
  * @author Joacim Zschimmer
  */
 final class SchedulerThreadController(val name: String, cppSettings: CppSettings) extends SchedulerController {
-  val eventBus = new SchedulerEventBus
+  private val _eventBus = new SchedulerEventBus
   private val throwableMailbox: ThrowableMailbox[Throwable] = new ThrowableMailbox[Throwable]
   private val controllerBridge = new SchedulerThreadControllerBridge(this, eventBus, cppSettings)
   private val thread = new SchedulerThread(controllerBridge)
@@ -28,7 +29,7 @@ final class SchedulerThreadController(val name: String, cppSettings: CppSettings
   def loadModule(cppModuleFile: File): Unit =
     SchedulerThread.loadModule(cppModuleFile)
 
-  def startScheduler(args: java.lang.Iterable[String]): Unit = {
+  def startScheduler(args: String*): Unit = {
     checkIsNotStarted()
     controllerBridge.start()
     thread.startThread(args)
@@ -89,7 +90,7 @@ final class SchedulerThreadController(val name: String, cppSettings: CppSettings
 
   def exitCode: Int = thread.exitCode
 
-  def getEventBus = eventBus
+  def eventBus = _eventBus
 
   def getName = name
 }

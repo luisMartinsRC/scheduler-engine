@@ -1,10 +1,9 @@
 package com.sos.scheduler.engine.test
 
-import _root_.scala.collection.JavaConversions._
-import _root_.scala.reflect.ClassTag
 import com.google.common.base.Splitter
 import com.google.common.base.Strings.nullToEmpty
 import com.google.common.base.Throwables._
+import com.sos.scheduler.engine.common.inject.GuiceImplicits._
 import com.sos.scheduler.engine.common.scalautil.{HasCloser, Logger}
 import com.sos.scheduler.engine.common.time.ScalaJoda._
 import com.sos.scheduler.engine.common.xml.XmlUtils.{loadXml, prettyXml}
@@ -12,7 +11,6 @@ import com.sos.scheduler.engine.data.log.{ErrorLogEvent, SchedulerLogLevel}
 import com.sos.scheduler.engine.data.message.MessageCode
 import com.sos.scheduler.engine.eventbus._
 import com.sos.scheduler.engine.kernel.Scheduler
-import com.sos.scheduler.engine.kernel.async.SchedulerThreadCallQueue
 import com.sos.scheduler.engine.kernel.log.PrefixLog
 import com.sos.scheduler.engine.kernel.scheduler.HasInjector
 import com.sos.scheduler.engine.kernel.settings.{CppSettingName, CppSettings}
@@ -21,11 +19,12 @@ import com.sos.scheduler.engine.main.{CppBinaries, CppBinary, SchedulerState, Sc
 import com.sos.scheduler.engine.test.TestSchedulerController._
 import com.sos.scheduler.engine.test.binary.{CppBinariesDebugMode, TestCppBinaries}
 import com.sos.scheduler.engine.test.configuration.{HostwareDatabaseConfiguration, JdbcDatabaseConfiguration, TestConfiguration}
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
 import java.io.File
 import java.sql.{Connection, DriverManager}
 import org.joda.time.Duration
 import org.scalactic.Requirements._
+import scala.collection.JavaConversions.iterableAsScalaIterable
+import scala.reflect.ClassTag
 
 abstract class TestSchedulerController
 extends DelegatingSchedulerController
@@ -39,8 +38,6 @@ with EventHandlerAnnotated {
 
   private val testName = testConfiguration.testClass.getName
   protected final lazy val delegate = new SchedulerThreadController(testName, cppSettings(testName, testConfiguration, environment.databaseDirectory))
-  val eventBus: SchedulerEventBus = getEventBus
-  private val thread = Thread.currentThread
   private val debugMode = testConfiguration.binariesDebugMode getOrElse CppBinariesDebugMode.debug
   private val logCategories = testConfiguration.logCategories + " " + sys.props.getOrElse("scheduler.logCategories", "").trim
   private var isPrepared: Boolean = false
@@ -75,9 +72,6 @@ with EventHandlerAnnotated {
     waitUntilSchedulerIsActive()
   }
 
-  def startScheduler(args: java.lang.Iterable[String]): Unit =
-    startScheduler(iterableAsScalaIterable(args).toSeq)
-
   def startScheduler(args: String*): Unit = {
     prepare()
     val extraOptions = nullToEmpty(System.getProperty(classOf[TestSchedulerController].getName + ".options"))
@@ -86,7 +80,7 @@ with EventHandlerAnnotated {
         Splitter.on(",").omitEmptyStrings.split(extraOptions) ++
         testConfiguration.mainArguments ++
         args
-    delegate.startScheduler(allArgs)
+    delegate.startScheduler(allArgs: _*)
   }
 
   def prepare(): Unit = {
@@ -129,7 +123,7 @@ with EventHandlerAnnotated {
   }
 
   private def checkForErrorLogLine(): Unit = {
-    val lastErrorLine = _scheduler.instance[PrefixLog].lastByLevel(SchedulerLogLevel.error)
+    val lastErrorLine = _scheduler.injector.apply[PrefixLog].lastByLevel(SchedulerLogLevel.error)
     if (!lastErrorLine.isEmpty) sys.error("Test terminated after error log line: " + lastErrorLine)
   }
 
@@ -144,7 +138,7 @@ with EventHandlerAnnotated {
     errorLogEventIsTolerated = predicate
     try {
       val result = f
-      getEventBus.dispatchEvents()   // Damit handleEvent(ErrorLogEvent) wirklich jetzt gerufen wird, solange noch errorLogEventIsTolerated gesetzt ist
+      eventBus.dispatchEvents()   // Damit handleEvent(ErrorLogEvent) wirklich jetzt gerufen wird, solange noch errorLogEventIsTolerated gesetzt ist
       result
     }
     finally errorLogEventIsTolerated = Set()
@@ -170,8 +164,7 @@ with EventHandlerAnnotated {
     }
   }
 
-  final def instance[A](implicit c: ClassTag[A]): A =
-    injector.getInstance(c.runtimeClass.asInstanceOf[Class[A]])
+  final def instance[A : ClassTag]: A = injector.apply[A]
 
   final def injector = scheduler.injector
 

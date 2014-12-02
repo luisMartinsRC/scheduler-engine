@@ -9,8 +9,7 @@ import com.sos.scheduler.engine.kernel.persistence.hibernate.HibernateOrderStore
 import com.sos.scheduler.engine.kernel.persistence.hibernate.ScalaHibernate.transaction
 import com.sos.scheduler.engine.test.EventBusTestFutures.implicits._
 import com.sos.scheduler.engine.test.configuration.TestConfiguration
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.tests.jira.js1251.JS1251IT._
 import javax.persistence.EntityManagerFactory
 import org.junit.runner.RunWith
@@ -34,7 +33,7 @@ final class JS1251IT extends FreeSpec with ScalaSchedulerTest {
       scheduler executeXml ModifyOrderCommand(TestOrderKey, at = Some(ModifyOrderCommand.NowAt))
     }
     transaction { implicit entityManager ⇒
-      instance[HibernateOrderStore].tryFetch(TestOrderKey).get.title shouldEqual OriginalTitle
+      instance[HibernateOrderStore].fetch(TestOrderKey).title shouldEqual OriginalTitle
     }
   }
 
@@ -42,7 +41,7 @@ final class JS1251IT extends FreeSpec with ScalaSchedulerTest {
     file(TestOrderKey).contentString = file(TestOrderKey).contentString.replace(OriginalTitle, AChangedTitle)
     instance[FolderSubsystem].updateFolders()
     transaction { implicit entityManager ⇒
-      instance[HibernateOrderStore].tryFetch(TestOrderKey).get.title shouldEqual AChangedTitle
+      instance[HibernateOrderStore].fetch(TestOrderKey).title shouldEqual AChangedTitle
     }
     controller.eventBus.awaitingKeyedEvent[OrderFinishedEvent](TestOrderKey) {
       scheduler executeXml ModifyOrderCommand(TestOrderKey, at = Some(ModifyOrderCommand.NowAt))
@@ -57,13 +56,13 @@ final class JS1251IT extends FreeSpec with ScalaSchedulerTest {
     file(TestOrderKey).contentString = file(TestOrderKey).contentString.replace(AChangedTitle, BChangedTitle)
     instance[FolderSubsystem].updateFolders()
     transaction { implicit entityManager ⇒
-      instance[HibernateOrderStore].tryFetch(TestOrderKey).get should have ('stateOption(Some(SuspendedState)), 'title(AChangedTitle))
+      instance[HibernateOrderStore].fetch(TestOrderKey)should have ('stateOption(Some(SuspendedState)), 'title(AChangedTitle))
     }
     controller.eventBus.awaitingKeyedEvent[OrderFinishedEvent](TestOrderKey) {
       scheduler executeXml <job_chain_node.modify job_chain={TestOrderKey.jobChainPath.string} state={SuspendedState.string} action="process"/>
     }
     transaction { implicit entityManager ⇒
-      instance[HibernateOrderStore].tryFetch(TestOrderKey).get should have ('stateOption(Some(FirstState)), 'title(BChangedTitle))
+      instance[HibernateOrderStore].fetch(TestOrderKey)should have ('stateOption(Some(FirstState)), 'title(BChangedTitle))
     }
   }
 

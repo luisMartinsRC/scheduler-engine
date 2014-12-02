@@ -1,22 +1,20 @@
 package com.sos.scheduler.engine.tests.order.monitor.spoolerprocessafter
 
-import SpoolerProcessAfterIT._
 import com.google.common.base.Strings.emptyToNull
+import com.sos.scheduler.engine.common.scalautil.AutoClosing.autoClosing
 import com.sos.scheduler.engine.data.event.Event
-import com.sos.scheduler.engine.data.job.TaskClosedEvent
-import com.sos.scheduler.engine.data.job.TaskId
+import com.sos.scheduler.engine.data.job.{TaskClosedEvent, TaskId}
 import com.sos.scheduler.engine.data.log.{LogEvent, SchedulerLogLevel}
 import com.sos.scheduler.engine.data.order._
-import com.sos.scheduler.engine.kernel.scheduler.SchedulerConstants.taskIdOffset
 import com.sos.scheduler.engine.eventbus.{EventHandler, HotEventHandler}
 import com.sos.scheduler.engine.kernel.job.JobSubsystem
 import com.sos.scheduler.engine.kernel.order.{OrderSubsystem, UnmodifiableOrder}
+import com.sos.scheduler.engine.kernel.scheduler.SchedulerConstants.taskIdOffset
 import com.sos.scheduler.engine.test.configuration.TestConfiguration
-import com.sos.scheduler.engine.test.scala.ScalaSchedulerTest
-import com.sos.scheduler.engine.test.scala.SchedulerTestImplicits._
+import com.sos.scheduler.engine.test.scalatest.ScalaSchedulerTest
 import com.sos.scheduler.engine.test.util.time.TimeoutWithSteps
 import com.sos.scheduler.engine.test.util.time.WaitForCondition.waitForCondition
-import com.sos.scheduler.engine.tests.order.monitor.spoolerprocessafter.SpoolerProcessAfterIT.MyFinishedEvent
+import com.sos.scheduler.engine.tests.order.monitor.spoolerprocessafter.SpoolerProcessAfterIT.{MyFinishedEvent, _}
 import com.sos.scheduler.engine.tests.order.monitor.spoolerprocessafter.expected._
 import com.sos.scheduler.engine.tests.order.monitor.spoolerprocessafter.setting._
 import org.joda.time.Duration.millis
@@ -34,55 +32,55 @@ final class SpoolerProcessAfterIT extends FunSuite with ScalaSchedulerTest {
     testClass = getClass,
     terminateOnError = false)
 
-  private lazy val jobSubsystem = scheduler.instance[JobSubsystem]
-  private lazy val orderSubsystem = scheduler.instance[OrderSubsystem]
+  private lazy val jobSubsystem = instance[JobSubsystem]
+  private lazy val orderSubsystem = instance[OrderSubsystem]
 
   Settings.list.zipWithIndex foreach { case ((setting, expected), i) =>
     val index = i + 1
     test(renameTestForSurefire(index +". "+ setting +" should result in " +expected)) {
-      new MyTest(index, setting, expected)
+      myTest(index, setting, expected)
     }
   }
 
-  private final class MyTest(index: Int, setting: Setting, expected: Expected) {
-    val eventPipe = controller.newEventPipe()
-    val job = jobSubsystem.job(setting.jobPath)
+  private def myTest(index: Int, setting: Setting, expected: Expected): Unit =
+    autoClosing(controller.newEventPipe()) { eventPipe ⇒
+      val job = jobSubsystem.job(setting.jobPath)
 
-    try {
-      val e = execute()
-      checkAssertions(e)
-    }
-    finally cleanUpAfterTest()
-
-    def execute() = {
-      scheduler executeXml setting.orderElem
-      val result = eventPipe.nextAny[MyFinishedEvent]
-      cleanUpAfterExcecute()
-      result
-    }
-
-    def cleanUpAfterExcecute(): Unit = {
-      orderSubsystem.tryRemoveOrder(setting.orderKey)  // Falls Auftrag zurückgestellt ist, damit der Job nicht gleich nochmal mit demselben Auftrag startet.
-      job.endTasks()   // Task kann schon beendet und Job schon gestoppt sein.
-      eventPipe.nextAny[TaskClosedEvent] match { case e =>
-        assert(e.taskId === TaskId(taskIdOffset + index - 1), "TaskClosedEvent not for expected task - probably a previous test failed")
+      try {
+        val e = execute()
+        checkAssertions(e)
       }
-      waitForCondition(TimeoutWithSteps(millis(3000), millis(10))) { job.state == expected.jobState }   // Der Job-Zustand wird asynchron geändert (stopping -> stopped, running -> pending). Wir warten kurz darauf.
-    }
+      finally cleanUpAfterTest()
 
-    def checkAssertions(event: MyFinishedEvent): Unit = {
-      assert(event.orderKey === setting.orderKey)
-      assert(expected.orderStateExpectation matches event.state, "Expected OrderState="+expected.orderStateExpectation+", but was "+event.state)
-      assert(event.spoolerProcessAfterParameterOption === expected.spoolerProcessAfterParameterOption, "Parameter for spooler_process_after(): ")
-      assert(job.state === expected.jobState, "Job.state is not as expected: ")
-      assert(messageCodes.toMap === expected.messageCodes.toMap)
-    }
+      def execute() = {
+        scheduler executeXml setting.orderElem
+        val result = eventPipe.nextAny[MyFinishedEvent]
+        cleanUpAfterExcecute()
+        result
+      }
 
-    private def cleanUpAfterTest(): Unit = {
-      scheduler executeXml <modify_job job={setting.jobPath.string} cmd="unstop"/>
-      messageCodes.clear()
+      def cleanUpAfterExcecute(): Unit = {
+        orderSubsystem.tryRemoveOrder(setting.orderKey)  // Falls Auftrag zurückgestellt ist, damit der Job nicht gleich nochmal mit demselben Auftrag startet.
+        job.endTasks()   // Task kann schon beendet und Job schon gestoppt sein.
+        eventPipe.nextAny[TaskClosedEvent] match { case e =>
+          assert(e.taskId === TaskId(taskIdOffset + index - 1), "TaskClosedEvent not for expected task - probably a previous test failed")
+        }
+        waitForCondition(TimeoutWithSteps(millis(3000), millis(10))) { job.state == expected.jobState }   // Der Job-Zustand wird asynchron geändert (stopping -> stopped, running -> pending). Wir warten kurz darauf.
+      }
+
+      def checkAssertions(event: MyFinishedEvent): Unit = {
+        assert(event.orderKey === setting.orderKey)
+        assert(expected.orderStateExpectation matches event.state, "Expected OrderState="+expected.orderStateExpectation+", but was "+event.state)
+        assert(event.spoolerProcessAfterParameterOption === expected.spoolerProcessAfterParameterOption, "Parameter for spooler_process_after(): ")
+        assert(job.state === expected.jobState, "Job.state is not as expected: ")
+        assert(messageCodes.toMap === expected.messageCodes.toMap)
+      }
+
+      def cleanUpAfterTest(): Unit = {
+        scheduler executeXml <modify_job job={setting.jobPath.string} cmd="unstop"/>
+        messageCodes.clear()
+      }
     }
-  }
 
   @HotEventHandler def handleEvent(e: OrderStepEndedEvent, order: UnmodifiableOrder): Unit = {
     if (e.stateTransition == OrderStateTransition.keepState) {
@@ -96,13 +94,13 @@ final class SpoolerProcessAfterIT extends FunSuite with ScalaSchedulerTest {
   }
 
   private def publishMyFinishedEvent(order: UnmodifiableOrder): Unit = {
-    controller.getEventBus.publishCold(MyFinishedEvent(
+    controller.eventBus.publishCold(MyFinishedEvent(
       order.key, order.state,
       Option(emptyToNull(order.parameters(SpoolerProcessAfterNames.parameter))) map { _.toBoolean }))
   }
 
   @EventHandler def handleEvent(e: LogEvent): Unit = {
-    if (Expected.logLevels contains e.level) {
+    if (Expected.LogLevels contains e.level) {
       for (code <- Option(e.getCodeOrNull))
         messageCodes.addBinding(e.level, code)
     }
