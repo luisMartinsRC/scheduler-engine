@@ -1,5 +1,6 @@
 package com.sos.scheduler.engine.tests.jira.js1163
 
+import com.sos.scheduler.engine.agent.test.AgentTest
 import com.sos.scheduler.engine.common.scalautil.Collections.implicits._
 import com.sos.scheduler.engine.common.system.OperatingSystem.isWindows
 import com.sos.scheduler.engine.common.time.ScalaJoda._
@@ -22,7 +23,7 @@ import org.scalatest.junit.JUnitRunner
  * @author Joacim Zschimmer
  */
 @RunWith(classOf[JUnitRunner])
-final class JS1163IT extends FreeSpec with ScalaSchedulerTest {
+final class JS1163IT extends FreeSpec with ScalaSchedulerTest with AgentTest {
 
   private lazy val List(httpPort, tcpPort) = findRandomFreeTcpPorts(2)
   override protected lazy val testConfiguration = TestConfiguration(getClass, mainArguments = List(s"-http-port=$httpPort", s"-tcp-port=$tcpPort"))
@@ -56,7 +57,8 @@ final class JS1163IT extends FreeSpec with ScalaSchedulerTest {
   private def addUnixTests(): Unit = {
     val settings = List(
       "Without agent" → { () ⇒ None },
-      "With agent" → { () ⇒ Some(s"http://127.0.0.1:$httpPort") })
+      "With C++ agent" → { () ⇒ Some(s"http://127.0.0.1:$httpPort") },
+      "With Java Agent" → { () ⇒ Some(agentUri) })
     for ((testVariantName, agentAddressOption) ← settings) {
 
       s"$testVariantName - (Run and kill tasks)" in {
@@ -68,7 +70,6 @@ final class JS1163IT extends FreeSpec with ScalaSchedulerTest {
             TrapJobPath, TrapMonitorJobPath,
             IgnoringJobPath, IgnoringMonitorJobPath,
             ApiJobPath)
-          val t = now()
           val runs = jobPaths map { runJobFuture(_) }
           for (run ← runs) awaitSuccess(run.started)
           // Now, during slow Java start, shell scripts should have executed their "trap" commands
