@@ -1,6 +1,7 @@
 package com.sos.scheduler.engine.agent.web
 
 import com.sos.scheduler.engine.agent.data.commands._
+import com.sos.scheduler.engine.agent.data.responses.Response
 import com.sos.scheduler.engine.agent.web.AgentWebService._
 import com.sos.scheduler.engine.agent.web.marshal.XmlString
 import com.sos.scheduler.engine.agent.xmlcommand.CommandXmlExecutor
@@ -67,11 +68,9 @@ object AgentWebService {
 
   private def addIPAddressToLegacySchedulerCommand(commandXml: String, clientIPAddress: String): String = {
     val elem = SafeXML.loadString(commandXml)
-    elem.label match {
-      case StartProcess.XmlElementName ⇒
-        elem.copy(attributes = elem.attributes.append(new xml.UnprefixedAttribute("ip_address", clientIPAddress, xml.Null))).toString()
-      case CloseProcess.XmlElementName ⇒ commandXml
-      case label ⇒ sys.error(s"Unexpected XML command: $label")
-    }
+    if (elem.label == StartProcess.XmlElementName)
+      elem.copy(attributes = elem.attributes.append(new xml.UnprefixedAttribute("ip_address", clientIPAddress, xml.Null))).toString()
+    else
+      commandXml
   }
 }
