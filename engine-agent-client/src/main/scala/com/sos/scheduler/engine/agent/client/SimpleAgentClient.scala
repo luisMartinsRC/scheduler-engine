@@ -1,6 +1,9 @@
 package com.sos.scheduler.engine.agent.client
 
 import akka.actor.ActorSystem
+import com.sos.scheduler.engine.common.commandline.CommandLineArguments
+import com.sos.scheduler.engine.common.scalautil.Closers.implicits._
+import com.sos.scheduler.engine.common.scalautil.Closers.withCloser
 
 /**
  * Simple client for JobScheduler Agent.
@@ -18,4 +21,18 @@ final class SimpleAgentClient private(protected[client] val agentUri: String) ex
 
 object SimpleAgentClient {
   def apply(agentUri: String) = new SimpleAgentClient(agentUri)
+
+  def main(args: Array[String]): Unit = {
+    val arguments = CommandLineArguments(args)
+    val agentUrl = arguments.string("-url=")
+    val command = arguments.string("-command=")
+    arguments.requireNoMoreArguments()
+
+    withCloser{ implicit closer ⇒
+      val client = SimpleAgentClient(agentUrl).closeWithCloser
+      val response = client.executeJsonCommandSynchronously(command)
+      println(response)
+    }
+
+  }
 }
